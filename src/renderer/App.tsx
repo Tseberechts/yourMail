@@ -5,102 +5,83 @@ import { EmailList } from './components/EmailList';
 import { EmailViewer } from './components/EmailViewer';
 import { AddAccountModal } from './components/AddAccountModal';
 import { ComposeModal } from './components/ComposeModal';
+import { ToastContainer } from './components/Toast';
 import { Loader2 } from 'lucide-react';
 
+// Custom Hooks
+import { useToast } from './hooks/useToast';
+import { useMail } from './hooks/useMail';
+
 function App() {
+    // --- UI State ---
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [isComposeOpen, setIsComposeOpen] = useState(false);
 
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [selectedFolder, setSelectedFolder] = useState('inbox');
-
-    const [emails, setEmails] = useState<Email[]>([]);
+    const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-    const [isLoadingEmails, setIsLoadingEmails] = useState(false);
 
-    // Fetch Logic
-    const fetchEmails = useCallback(async () => {
-        if (!selectedAccount) return;
-        setIsLoadingEmails(true);
-        try {
-            // @ts-ignore
-            const result = await window.ipcRenderer.syncEmails(selectedAccount);
-            if (result.success) {
-                setEmails(result.emails);
-                if (!selectedEmail && result.emails.length > 0) setSelectedEmail(result.emails[0]);
-            } else {
-                console.error("Failed to sync:", result.error);
-            }
-        } catch (e) {
-            console.error("Sync error:", e);
-        } finally {
-            setIsLoadingEmails(false);
+    // --- Hooks ---
+    const { toasts, addToast, removeToast } = useToast();
+
+    const handleAuthSuccess = useCallback((newAccount: Account) => {
+        setSelectedAccount(newAccount.id);
+    }, []);
+
+    const handleSyncSuccess = useCallback((fetchedEmails: Email[]) => {
+        // If no email is selected, or the selected one isn't in the new list, auto-select first
+        // (Optional logic: currently we only auto-select if nothing is selected)
+        setSelectedEmail(prev => {
+            if (!prev && fetchedEmails.length > 0) return fetchedEmails[0];
+            return prev;
+        });
+    }, []);
+
+    const {
+        accounts,
+        emails,
+        isLoadingEmails,
+        fetchEmails,
+        deleteEmail
+    } = useMail({
+        selectedAccount,
+        addToast,
+        onAuthSuccess: handleAuthSuccess,
+        onSyncSuccess: handleSyncSuccess
+    });
+
+    // Auto-select first account if loaded and none selected
+    useEffect(() => {
+        if (!selectedAccount && accounts.length > 0) {
+            setSelectedAccount(accounts[0].id);
         }
-    }, [selectedAccount, selectedFolder, selectedEmail]);
+    }, [accounts, selectedAccount]);
 
-    // Handle Deletion (Optimistic UI)
-    const handleDeleteEmail = async (emailId: string) => {
-        if (!selectedAccount) return;
-
-        // 1. Optimistic Update: Remove from UI immediately
-        const previousEmails = [...emails];
-        setEmails(prev => prev.filter(e => e.id !== emailId));
-
-        // If we deleted the currently selected email, deselect it
+    // Wrapper to handle UI side-effects of deletion (clearing selection)
+    const handleDeleteWrapper = async (emailId: string) => {
         if (selectedEmail?.id === emailId) {
             setSelectedEmail(null);
         }
-
-        // 2. Call Backend
-        try {
-            // @ts-ignore
-            const result = await window.ipcRenderer.deleteEmail(selectedAccount, emailId);
-            if (!result.success) {
-                // Revert on failure
-                console.error("Delete failed on server, reverting UI");
-                setEmails(previousEmails);
-                alert("Failed to delete email: " + result.error);
-            }
-        } catch (error) {
-            console.error("Delete error", error);
-            setEmails(previousEmails);
-        }
+        await deleteEmail(emailId);
     };
-
-    // Setup Listeners
-    useEffect(() => {
-        const loadAccounts = async () => {
-            // @ts-ignore
-            const storedAccounts = await window.ipcRenderer.getAccounts();
-            setAccounts(storedAccounts);
-            if (storedAccounts.length > 0) setSelectedAccount(storedAccounts[0].id);
-        };
-        loadAccounts();
-
-        // @ts-ignore
-        const removeListener = window.ipcRenderer.on('auth:success', (_event, newAccount: Account) => {
-            setAccounts(prev => {
-                if (prev.find(a => a.id === newAccount.id)) return prev;
-                return [...prev, newAccount];
-            });
-            setSelectedAccount(newAccount.id);
-        });
-        return () => { if (removeListener) removeListener(); };
-    }, []);
-
-    // Auto Refresh
-    useEffect(() => {
-        fetchEmails();
-        const intervalId = setInterval(() => { console.log("Auto-refreshing..."); fetchEmails(); }, 60000);
-        return () => clearInterval(intervalId);
-    }, [fetchEmails]);
 
     return (
         <div className="flex h-screen w-screen bg-gray-900 text-white overflow-hidden font-sans relative">
-            <AddAccountModal isOpen={isAddAccountOpen} onClose={() => setIsAddAccountOpen(false)} />
-            <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} fromAccount={selectedAccount} />
+            <ToastContainer toasts={toasts} onDismiss={removeToast} />
+
+            <AddAccountModal
+                isOpen={isAddAccountOpen}
+                onClose={() => setIsAddAccountOpen(false)}
+                onShowToast={addToast}
+            />
+
+            <ComposeModal
+                isOpen={isComposeOpen}
+                onClose={() => setIsComposeOpen(false)}
+                fromAccount={selectedAccount}
+                onShowToast={addToast}
+            />
 
             <Sidebar
                 accounts={accounts}
@@ -125,12 +106,18 @@ function App() {
                         selectedEmailId={selectedEmail?.id || null}
                         onSelectEmail={setSelectedEmail}
                         folderName={selectedFolder}
-                        onRefresh={fetchEmails}
+                        onRefresh={() => {
+                            fetchEmails();
+                            addToast("Refreshing inbox...", 'info');
+                        }}
                         isRefreshing={isLoadingEmails}
-                        onDeleteEmail={handleDeleteEmail} // <--- Pass Handler
+                        onDeleteEmail={handleDeleteWrapper}
                     />
                 )}
-                <EmailViewer email={selectedEmail} />
+                <EmailViewer
+                    email={selectedEmail}
+                    onDelete={handleDeleteWrapper}
+                />
             </div>
         </div>
     );

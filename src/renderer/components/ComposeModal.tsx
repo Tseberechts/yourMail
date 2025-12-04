@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { X, Send, Loader2 } from 'lucide-react';
+import { ToastType } from './Toast';
 
 interface ComposeModalProps {
     isOpen: boolean;
     onClose: () => void;
-    fromAccount: string; // The account sending the email
+    fromAccount: string;
+    onShowToast: (msg: string, type: ToastType) => void; // <--- New Prop
 }
 
-export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fromAccount }) => {
+export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fromAccount, onShowToast }) => {
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
@@ -17,7 +19,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
 
     const handleSend = async () => {
         if (!to || !subject || !body) {
-            alert("Please fill in all fields.");
+            onShowToast("Please fill in all fields.", 'error');
             return;
         }
 
@@ -32,18 +34,17 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
             });
 
             if (result.success) {
-                alert("Email Sent!");
+                onShowToast("Email Sent Successfully!", 'success');
                 onClose();
-                // Clear form
                 setTo('');
                 setSubject('');
                 setBody('');
             } else {
-                alert("Failed to send: " + result.error);
+                onShowToast("Failed to send: " + result.error, 'error');
             }
         } catch (e) {
             console.error(e);
-            alert("Error sending email.");
+            onShowToast("Error sending email.", 'error');
         } finally {
             setIsSending(false);
         }

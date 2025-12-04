@@ -5,9 +5,10 @@ import DOMPurify from 'dompurify';
 
 interface EmailViewerProps {
     email: Email | null;
+    onDelete: (emailId: string) => void; // <--- NEW PROP
 }
 
-export const EmailViewer: React.FC<EmailViewerProps> = ({ email }) => {
+export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => {
     if (!email) {
         return (
             <div className="flex-1 flex items-center justify-center bg-gray-900 text-gray-500">
@@ -16,11 +17,10 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email }) => {
         );
     }
 
-    // Sanitize the HTML content before rendering
     const sanitizedHtml = DOMPurify.sanitize(email.htmlBody || email.body, {
-        USE_PROFILES: { html: true }, // Ensure we keep HTML structure
-        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'], // Block risky tags
-        FORBID_ATTR: ['onerror', 'onload', 'onclick'] // Block event handlers
+        USE_PROFILES: { html: true },
+        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
+        FORBID_ATTR: ['onerror', 'onload', 'onclick']
     });
 
     return (
@@ -31,9 +31,16 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email }) => {
                     <button className="p-2 hover:bg-gray-800 rounded-md text-gray-400 transition-colors">
                         <Archive size={18} />
                     </button>
-                    <button className="p-2 hover:bg-gray-800 rounded-md text-gray-400 transition-colors">
+
+                    {/* DELETE BUTTON */}
+                    <button
+                        onClick={() => onDelete(email.id)}
+                        className="p-2 hover:bg-red-900/30 text-gray-400 hover:text-red-400 rounded-md transition-colors"
+                        title="Delete Email"
+                    >
                         <Trash2 size={18} />
                     </button>
+
                     <button className="p-2 hover:bg-gray-800 rounded-md text-gray-400 transition-colors">
                         <Star size={18} />
                     </button>
@@ -68,14 +75,13 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email }) => {
                         </div>
                     </div>
 
-                    {/* Render HTML Content Safely */}
                     <div
                         className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-sm email-content"
                         dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
                 </div>
 
-                {/* AI Sidebar (Placeholder for Phase 4) */}
+                {/* AI Sidebar */}
                 <div className="w-72 bg-gray-850 border-l border-gray-700 p-4 hidden xl:block">
                     <div className="flex items-center text-sky-400 font-medium mb-4 text-sm uppercase tracking-wider">
                         <Zap size={14} className="mr-2" /> AI Assistant

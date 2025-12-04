@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { X, Mail, Shield, Loader2 } from 'lucide-react';
 import { AccountType } from '../../shared/types';
+import { ToastType } from './Toast';
 
 interface AddAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onShowToast: (msg: string, type: ToastType) => void; // <--- New Prop
 }
 
-export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose }) => {
+export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose, onShowToast }) => {
     const [newAccountType, setNewAccountType] = useState<AccountType>('gmail');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -17,22 +19,22 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClos
         if (newAccountType === 'gmail') {
             setIsLoading(true);
             try {
-                // @ts-ignore - Trigger the Main process flow
+                // @ts-ignore
                 const result = await window.ipcRenderer.startGmailAuth();
                 if (result.success) {
-                    alert("Gmail Connected Successfully!");
+                    onShowToast("Gmail Connected Successfully!", 'success');
                     onClose();
                 } else {
-                    alert("Failed to connect: " + result.error);
+                    onShowToast("Failed to connect: " + result.error, 'error');
                 }
             } catch (e) {
                 console.error(e);
-                alert("An error occurred during authentication.");
+                onShowToast("An error occurred during authentication.", 'error');
             } finally {
                 setIsLoading(false);
             }
         } else {
-            alert("Exchange support coming soon!");
+            onShowToast("Exchange support coming soon!", 'info');
         }
     };
 
@@ -47,7 +49,6 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="p-6">
-                    {/* ... existing code ... */}
                     <div className="flex space-x-4 mb-6">
                         <button
                             onClick={() => setNewAccountType('gmail')}

@@ -23,6 +23,30 @@ export class ImapService {
         });
     }
 
+    /**
+     * Helper to find the correct Trash folder path dynamically.
+     * Gmail can be [Gmail]/Trash, [Gmail]/Bin, or localized (e.g., Corbeille).
+     */
+    private async getTrashPath(client: ImapFlow): Promise<string> {
+        try {
+            const mailboxes = await client.list();
+            // 1. Look for the folder flagged with the \Trash special attribute
+            const specialTrash = mailboxes.find(box => box.specialUse === '\\Trash');
+            if (specialTrash) return specialTrash.path;
+
+            // 2. Fallbacks for common Gmail names if flags are missing
+            const paths = mailboxes.map(b => b.path);
+            if (paths.includes('[Gmail]/Trash')) return '[Gmail]/Trash';
+            if (paths.includes('[Gmail]/Bin')) return '[Gmail]/Bin';
+            if (paths.includes('Trash')) return 'Trash';
+
+            return 'INBOX.Trash'; // Desperate fallback
+        } catch (error) {
+            console.warn("Failed to list mailboxes, defaulting to [Gmail]/Trash", error);
+            return '[Gmail]/Trash';
+        }
+    }
+
     async fetchEmails(accountId: string): Promise<Email[]> {
         const accessToken = this.secureStore.getSecret(`${accountId}:access_token`);
         if (!accessToken) throw new Error(`No access token found for ${accountId}`);
@@ -79,14 +103,20 @@ export class ImapService {
 
         try {
             await client.connect();
+
+            // 1. Determine where to move the email
+            const trashPath = await this.getTrashPath(client);
+            console.log(`[ImapService] Moving email ${emailUid} to ${trashPath}`);
+
             const lock = await client.getMailboxLock('INBOX');
             try {
-                // Move to Trash (Gmail specific standard)
-                // If this were generic IMAP, we might just set \Deleted flag
-                await client.messageMove(emailUid, '[Gmail]/Trash', { uid: true });
+                // 2. Perform the Move (Copy + Delete in source)
+                // Ensure we pass { uid: true } because we are using a UID, not a sequence number
+                await client.messageMove(emailUid, trashPath, { uid: true });
             } finally {
                 lock.release();
             }
+
             await client.logout();
             return true;
         } catch (err) {
