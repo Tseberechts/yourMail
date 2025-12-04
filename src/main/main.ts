@@ -1,23 +1,18 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
+import { SecureStore } from './SecureStore'
+import { AuthService } from './AuthService' // Import the new service
 
-// The built directory structure
-//
-// ├─┬─ dist
-// │ └── index.html
-// ├── dist-electron
-// │ ├── main.js
-// │ └── preload.js
-//
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
 
 let win: BrowserWindow | null
+// Initialize Services
+const secureStore = new SecureStore();
+const authService = new AuthService(secureStore);
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
-const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
-
-console.log('VITE_DEV_SERVER_URL:', VITE_DEV_SERVER_URL)
+const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
     win = new BrowserWindow({
@@ -26,7 +21,6 @@ function createWindow() {
         icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
-            // Security: Disable nodeIntegration, enable contextIsolation
             nodeIntegration: false,
             contextIsolation: true,
         },
@@ -39,17 +33,12 @@ function createWindow() {
 
     if (VITE_DEV_SERVER_URL) {
         win.loadURL(VITE_DEV_SERVER_URL)
-        // Open devTool if the app is not packaged
         win.webContents.openDevTools()
     } else {
-        // win.loadFile('dist/index.html')
         win.loadFile(path.join(process.env.DIST, 'index.html'))
     }
 }
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit()
@@ -57,16 +46,37 @@ app.on('window-all-closed', () => {
 })
 
 app.on('activate', () => {
-    // On OS X it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow()
     }
 })
 
 app.whenReady().then(() => {
-    createWindow()
+    // --- IPC Handlers for Security ---
 
-    // Example IPC Handler
-    ipcMain.handle('ping', () => 'pong from main process')
+    // Save a secret
+    ipcMain.handle('secret:set', (_event, key: string, value: string) => {
+        return secureStore.setSecret(key, value);
+    });
+
+    // Retrieve a secret (only for internal logic or specific UI fields)
+    ipcMain.handle('secret:get', (_event, key: string) => {
+        return secureStore.getSecret(key);
+    });
+
+    // --- IPC Handlers for Auth ---
+    ipcMain.handle('auth:start-gmail', async () => {
+        if (win) {
+            try {
+                await authService.startGmailAuth(win);
+                return { success: true };
+            } catch (error: any) {
+                console.error("Auth failed", error);
+                return { success: false, error: error.message };
+            }
+        }
+        return { success: false, error: "Window not found" };
+    });
+
+    createWindow()
 })
