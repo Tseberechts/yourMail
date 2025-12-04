@@ -4,18 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { EmailList } from './components/EmailList';
 import { EmailViewer } from './components/EmailViewer';
 import { AddAccountModal } from './components/AddAccountModal';
-
-const MOCK_EMAILS: Email[] = [
-    {
-        id: 'e1',
-        subject: 'Welcome to YourMail',
-        from: 'Team YourMail',
-        date: '10:00 AM',
-        body: 'Welcome to YourMail. Connect your Gmail account to get started!',
-        tags: ['welcome'],
-        read: false,
-    },
-];
+import { Loader2 } from 'lucide-react';
 
 function App() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -24,8 +13,12 @@ function App() {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [selectedFolder, setSelectedFolder] = useState('inbox');
-    const [selectedEmail, setSelectedEmail] = useState<Email | null>(MOCK_EMAILS[0]);
 
+    const [emails, setEmails] = useState<Email[]>([]);
+    const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+    const [isLoadingEmails, setIsLoadingEmails] = useState(false);
+
+    // 1. Load Accounts on Startup
     useEffect(() => {
         const loadAccounts = async () => {
             // @ts-ignore
@@ -37,19 +30,47 @@ function App() {
         };
         loadAccounts();
 
+        // Listen for new accounts
         // @ts-ignore
         const removeListener = window.ipcRenderer.on('auth:success', (_event, newAccount: Account) => {
             setAccounts(prev => {
                 if (prev.find(a => a.id === newAccount.id)) return prev;
                 return [...prev, newAccount];
             });
-            if (!selectedAccount) setSelectedAccount(newAccount.id);
+            setSelectedAccount(newAccount.id);
         });
 
         return () => {
-            removeListener();
+            if (removeListener) removeListener();
         };
-    }, [selectedAccount]);
+    }, []);
+
+    // 2. Fetch Emails when Selected Account Changes
+    useEffect(() => {
+        if (!selectedAccount) return;
+
+        const fetchEmails = async () => {
+            setIsLoadingEmails(true);
+            setEmails([]); // Clear previous view
+            try {
+                console.log("Fetching emails for:", selectedAccount);
+                // @ts-ignore
+                const result = await window.ipcRenderer.syncEmails(selectedAccount);
+                if (result.success) {
+                    setEmails(result.emails);
+                    if (result.emails.length > 0) setSelectedEmail(result.emails[0]);
+                } else {
+                    console.error("Failed to sync:", result.error);
+                }
+            } catch (e) {
+                console.error("Sync error:", e);
+            } finally {
+                setIsLoadingEmails(false);
+            }
+        };
+
+        fetchEmails();
+    }, [selectedAccount, selectedFolder]); // Re-run if account or folder changes
 
     return (
         <div className="flex h-screen w-screen bg-gray-900 text-white overflow-hidden font-sans relative">
@@ -66,14 +87,22 @@ function App() {
                 onOpenAddAccount={() => setIsAddAccountOpen(true)}
             />
 
-            <EmailList
-                emails={accounts.length > 0 ? MOCK_EMAILS : []}
-                selectedEmailId={selectedEmail?.id || null}
-                onSelectEmail={setSelectedEmail}
-                folderName={selectedFolder}
-            />
+            <div className="flex flex-1 overflow-hidden">
+                {isLoadingEmails && emails.length === 0 ? (
+                    <div className="w-80 flex items-center justify-center border-r border-gray-700 bg-gray-900">
+                        <Loader2 className="animate-spin text-sky-500" />
+                    </div>
+                ) : (
+                    <EmailList
+                        emails={emails}
+                        selectedEmailId={selectedEmail?.id || null}
+                        onSelectEmail={setSelectedEmail}
+                        folderName={selectedFolder}
+                    />
+                )}
 
-            <EmailViewer email={selectedEmail} />
+                <EmailViewer email={selectedEmail} />
+            </div>
         </div>
     );
 }

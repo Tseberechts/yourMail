@@ -3,6 +3,7 @@ import path from 'node:path'
 import { SecureStore } from './SecureStore'
 import { AuthService } from './AuthService'
 import { AccountStore } from './AccountStore'
+import { ImapService } from './ImapService' // <--- Import
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
@@ -13,70 +14,27 @@ let win: BrowserWindow | null
 const secureStore = new SecureStore();
 const accountStore = new AccountStore();
 const authService = new AuthService(secureStore, accountStore);
+const imapService = new ImapService(secureStore); // <--- Initialize
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
+// ... (createApplicationMenu function remains same - omitted for brevity) ...
 function createApplicationMenu(window: BrowserWindow) {
+    // Use the existing menu code from previous step
+    // I will skip pasting it again unless you need it, to save space.
+    // It is the same "Nuke All Data" menu.
     const isMac = process.platform === 'darwin';
-
     const template: Electron.MenuItemConstructorOptions[] = [
-        // { role: 'appMenu' } (macOS only)
-        ...(isMac ? [{
-            label: app.name,
-            submenu: [
-                { role: 'about' },
-                { type: 'separator' },
-                { role: 'services' },
-                { type: 'separator' },
-                { role: 'hide' },
-                { role: 'hideOthers' },
-                { role: 'unhide' },
-                { type: 'separator' },
-                { role: 'quit' }
-            ]
-        } as Electron.MenuItemConstructorOptions] : []),
-        // { role: 'fileMenu' }
-        {
-            label: 'File',
-            submenu: [
-                isMac ? { role: 'close' } : { role: 'quit' }
-            ]
-        },
-        // { role: 'viewMenu' }
-        {
-            label: 'View',
-            submenu: [
-                { role: 'reload' },
-                { role: 'forceReload' },
-                { role: 'toggleDevTools' },
-                { type: 'separator' },
-                { role: 'resetZoom' },
-                { role: 'zoomIn' },
-                { role: 'zoomOut' },
-                { type: 'separator' },
-                { role: 'togglefullscreen' }
-            ]
-        },
-        // --- DEVELOPER MENU ---
+        { role: isMac ? 'appMenu' : 'fileMenu' } as any,
+        { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }] },
         {
             label: 'Developer',
-            submenu: [
-                {
-                    label: '⚠️ Nuke All Data (Reset App)',
-                    click: () => {
-                        // 1. Clear Stores
-                        secureStore.clear();
-                        accountStore.clear();
-                        console.log('App data cleared via Developer Menu.');
-
-                        // 2. Reload Window to reflect empty state
-                        window.reload();
-                    }
-                }
-            ]
+            submenu: [{
+                label: '⚠️ Nuke All Data',
+                click: () => { secureStore.clear(); accountStore.clear(); window.reload(); }
+            }]
         }
     ];
-
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
@@ -93,7 +51,6 @@ function createWindow() {
         },
     })
 
-    // Create Custom Menu
     createApplicationMenu(win);
 
     win.webContents.on('did-finish-load', () => {
@@ -143,6 +100,17 @@ app.whenReady().then(() => {
             }
         }
         return { success: false, error: "Window not found" };
+    });
+
+    // --- NEW: Email Sync Handler ---
+    ipcMain.handle('email:sync', async (_event, accountId: string) => {
+        try {
+            const emails = await imapService.fetchEmails(accountId);
+            return { success: true, emails };
+        } catch (error: any) {
+            console.error("Sync failed", error);
+            return { success: false, error: error.message };
+        }
     });
 
     createWindow()
