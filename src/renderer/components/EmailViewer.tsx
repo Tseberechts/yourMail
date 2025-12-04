@@ -1,5 +1,5 @@
 import React from 'react';
-import { Archive, Trash2, Star, CornerDownLeft, Zap } from 'lucide-react';
+import { Archive, Trash2, Star, CornerDownLeft, Zap, Paperclip, Download } from 'lucide-react';
 import { Email } from '../../shared/types';
 import DOMPurify from 'dompurify';
 
@@ -22,6 +22,15 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
         FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
         FORBID_ATTR: ['onerror', 'onload', 'onclick']
     });
+
+    const downloadAttachment = (att: any) => {
+        const link = document.createElement('a');
+        link.href = `data:${att.contentType};base64,${att.content}`;
+        link.download = att.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <div className="flex-1 flex flex-col bg-gray-900 min-w-0">
@@ -74,6 +83,32 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
                             {new Date(email.date).toLocaleString()}
                         </div>
                     </div>
+
+                    {email.attachments && email.attachments.length > 0 && (
+                        <div className="mb-6 pb-6 border-b border-gray-800">
+                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
+                                <Paperclip size={14} className="mr-2" />
+                                {email.attachments.length} Attachment{email.attachments.length !== 1 && 's'}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {email.attachments.map((att, index) => (
+                                    <div
+                                        key={index}
+                                        className="group flex items-center bg-gray-800 border border-gray-700 rounded-md px-3 py-2 hover:border-gray-600 transition-all cursor-pointer"
+                                        onClick={() => downloadAttachment(att)}
+                                    >
+                                        <div className="mr-3">
+                                            <p className="text-sm text-gray-200 font-medium truncate max-w-[150px]">{att.filename}</p>
+                                            <p className="text-[10px] text-gray-500">{(att.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                        <button className="text-gray-500 group-hover:text-sky-400 transition-colors">
+                                            <Download size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div
                         className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-sm email-content"

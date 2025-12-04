@@ -47,6 +47,16 @@ export class ImapService {
         // Full HTML for viewer
         const fullHtml = parsed.html || parsed.textAsHtml || `<pre>${plainText}</pre>`;
 
+        // [NEW] Process Attachments
+        const attachments = parsed.attachments.map(att => ({
+            filename: att.filename || 'unnamed_file',
+            contentType: att.contentType,
+            size: att.size,
+            // Convert Buffer to Base64 string for safe IPC transfer
+            content: att.content.toString('base64'),
+            checksum: att.checksum
+        }));
+
         return {
             id: message.uid.toString(),
             subject: envelope.subject || '(No Subject)',
@@ -55,7 +65,8 @@ export class ImapService {
             body: snippet,
             htmlBody: fullHtml,
             tags: [],
-            read: message.flags.has('\\Seen')
+            read: message.flags.has('\\Seen'),
+            attachments: attachments
         };
     }
 

@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Email } from '../../shared/types';
-import { Calendar, User, Search, RefreshCw, Trash2, Mail as MailIcon } from 'lucide-react';
+import React, {useMemo, useState} from 'react';
+import {Email} from '../../shared/types';
+import {Calendar, RefreshCw, Search, Trash2, User, Paperclip} from 'lucide-react';
 
 interface EmailListProps {
     emails: Email[];
@@ -34,9 +34,11 @@ export const EmailList: React.FC<EmailListProps> = ({
             const now = new Date();
             if (isNaN(date.getTime())) return isoString;
             const isToday = date.toDateString() === now.toDateString();
-            if (isToday) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        } catch (e) { return isoString; }
+            if (isToday) return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+            return date.toLocaleDateString([], {month: 'short', day: 'numeric'});
+        } catch (e) {
+            return isoString;
+        }
     };
 
     const processedEmails = useMemo(() => {
@@ -49,9 +51,18 @@ export const EmailList: React.FC<EmailListProps> = ({
             let valA = '';
             let valB = '';
             switch (sortField) {
-                case 'date': valA = a.date; valB = b.date; break;
-                case 'from': valA = a.from.toLowerCase(); valB = b.from.toLowerCase(); break;
-                case 'subject': valA = a.subject.toLowerCase(); valB = b.subject.toLowerCase(); break;
+                case 'date':
+                    valA = a.date;
+                    valB = b.date;
+                    break;
+                case 'from':
+                    valA = a.from.toLowerCase();
+                    valB = b.from.toLowerCase();
+                    break;
+                case 'subject':
+                    valA = a.subject.toLowerCase();
+                    valB = b.subject.toLowerCase();
+                    break;
             }
             if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
             if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
@@ -62,7 +73,10 @@ export const EmailList: React.FC<EmailListProps> = ({
 
     const toggleSort = (field: SortField) => {
         if (sortField === field) setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-        else { setSortField(field); setSortDirection('desc'); }
+        else {
+            setSortField(field);
+            setSortDirection('desc');
+        }
     };
 
     return (
@@ -71,18 +85,35 @@ export const EmailList: React.FC<EmailListProps> = ({
                 <div className="h-14 flex items-center justify-between px-4">
                     <h2 className="font-semibold text-gray-200 capitalize text-sm">{folderName}</h2>
                     <div className="flex space-x-1">
-                        <button onClick={onRefresh} title="Refresh" disabled={isRefreshing} className={`p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors`}>
-                            <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-sky-400' : ''} />
+                        <button
+                            onClick={onRefresh}
+                            title="Refresh"
+                            disabled={isRefreshing}
+                            className={`p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors`}
+                        >
+                            <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-sky-400' : ''}/>
                         </button>
-                        <div className="w-px h-4 bg-gray-700 mx-1 self-center" />
-                        <button onClick={() => toggleSort('date')} className={`p-1.5 rounded hover:bg-gray-800 ${sortField === 'date' ? 'text-sky-400 bg-gray-800' : 'text-gray-500'}`}><Calendar size={16} /></button>
-                        <button onClick={() => toggleSort('from')} className={`p-1.5 rounded hover:bg-gray-800 ${sortField === 'from' ? 'text-sky-400 bg-gray-800' : 'text-gray-500'}`}><User size={16} /></button>
+                        <div className="w-px h-4 bg-gray-700 mx-1 self-center"/>
+                        <button
+                            onClick={() => toggleSort('date')}
+                            className={`p-1.5 rounded hover:bg-gray-800 ${sortField === 'date' ? 'text-sky-400 bg-gray-800' : 'text-gray-500'}`}
+                        ><Calendar size={16}/></button>
+                        <button
+                            onClick={() => toggleSort('from')}
+                            className={`p-1.5 rounded hover:bg-gray-800 ${sortField === 'from' ? 'text-sky-400 bg-gray-800' : 'text-gray-500'}`}
+                        ><User size={16}/></button>
                     </div>
                 </div>
                 <div className="px-3 pb-3">
                     <div className="relative">
-                        <Search size={14} className="absolute left-2.5 top-2 text-gray-500" />
-                        <input type="text" placeholder="Filter emails..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800 text-gray-200 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:border-sky-600 focus:outline-none transition-colors" />
+                        <Search size={14} className="absolute left-2.5 top-2 text-gray-500"/>
+                        <input
+                            type="text"
+                            placeholder="Filter emails..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-gray-800 text-gray-200 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:border-sky-600 focus:outline-none transition-colors"
+                        />
                     </div>
                 </div>
             </div>
@@ -106,9 +137,14 @@ export const EmailList: React.FC<EmailListProps> = ({
                   <span className={`text-sm truncate max-w-[65%] ${isUnread ? 'text-white font-bold' : (selectedEmailId === email.id ? 'text-white' : 'text-gray-300')}`}>
                     {email.from}
                   </span>
-                                    <span className={`text-[10px] uppercase tracking-wide ${isUnread ? 'text-sky-400 font-bold' : 'text-gray-500'}`}>
-                    {formatDate(email.date)}
-                  </span>
+                                    <div className="flex items-center space-x-2">
+                                        {email.attachments && email.attachments.length > 0 && (
+                                            <Paperclip size={12} className="text-gray-500"/>
+                                        )}
+                                        <span className={`text-[10px] uppercase ...`}>
+            {formatDate(email.date)}
+        </span>
+                                    </div>
                                 </div>
                                 <div className={`text-sm truncate mb-0.5 ${isUnread ? 'text-gray-100 font-semibold' : 'text-gray-400 font-medium'}`}>
                                     {email.subject}
@@ -116,7 +152,10 @@ export const EmailList: React.FC<EmailListProps> = ({
                                 <div className="text-xs text-gray-600 truncate">{email.body}</div>
 
                                 {isUnread && (
-                                    <div className="absolute left-1 top-4 w-1.5 h-1.5 bg-sky-500 rounded-full" title="Unread" />
+                                    <div
+                                        className="absolute left-1 top-4 w-1.5 h-1.5 bg-sky-500 rounded-full"
+                                        title="Unread"
+                                    />
                                 )}
 
                                 <button
@@ -127,7 +166,7 @@ export const EmailList: React.FC<EmailListProps> = ({
                                     }}
                                     title="Move to Trash"
                                 >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={14}/>
                                 </button>
                             </div>
                         );

@@ -7,13 +7,23 @@ export interface Account {
     unread: number;
 }
 
+// [NEW] Define Attachment Structure
+export interface Attachment {
+    filename: string;
+    contentType: string;
+    size: number;
+    content: string; // Base64 encoded string for MVP transfer
+    checksum?: string;
+}
+
 export interface Email {
     id: string;
     subject: string;
     from: string;
     date: string;
-    body: string; // Plain text snippet for the list view
-    htmlBody?: string; // Full HTML content for the viewer
+    body: string;
+    htmlBody?: string;
     tags: string[];
     read: boolean;
+    attachments: Attachment[];
 }
