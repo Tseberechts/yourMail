@@ -5,6 +5,7 @@ import { AuthService } from './AuthService'
 import { AccountStore } from './AccountStore'
 import { ImapService } from './imap/ImapService'
 import { SmtpService } from './SmtpService'
+import { SendEmailPayload } from '../shared/types'
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
@@ -88,16 +89,28 @@ app.whenReady().then(() => {
     });
     ipcMain.handle('email:sync', async (_e, accId) => {
         try {
-            // UPDATED: Destructure the result from fetchEmails
             const result = await imapService.fetchEmails(accId);
             return { success: true, emails: result.emails, unreadCount: result.unreadCount };
         }
         catch (e: any) { return { success: false, error: e.message }; }
     });
-    ipcMain.handle('email:send', async (_e, data) => {
-        try { await smtpService.sendEmail(data.accountId, data.to, data.subject, data.body); return { success: true }; }
+
+    // [UPDATED] Send Email Handler
+    ipcMain.handle('email:send', async (_e, data: SendEmailPayload) => {
+        try {
+            // Pass the attachments array (default to [] if undefined)
+            await smtpService.sendEmail(
+                data.accountId,
+                data.to,
+                data.subject,
+                data.body,
+                data.attachments || []
+            );
+            return { success: true };
+        }
         catch (e: any) { return { success: false, error: e.message }; }
     });
+
     ipcMain.handle('email:delete', async (_event, data: { accountId: string, emailId: string }) => {
         try {
             await imapService.deleteEmail(data.accountId, data.emailId);

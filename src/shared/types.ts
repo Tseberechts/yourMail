@@ -7,12 +7,11 @@ export interface Account {
     unread: number;
 }
 
-// [NEW] Define Attachment Structure
 export interface Attachment {
     filename: string;
+    content: string; // Base64 string
     contentType: string;
     size: number;
-    content: string; // Base64 encoded string for MVP transfer
     checksum?: string;
 }
 
@@ -25,5 +24,14 @@ export interface Email {
     htmlBody?: string;
     tags: string[];
     read: boolean;
+    attachments?: Attachment[];
+}
+
+// [NEW] Payload for sending email
+export interface SendEmailPayload {
+    accountId: string;
+    to: string;
+    subject: string;
+    body: string;
     attachments: Attachment[];
 }

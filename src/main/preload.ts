@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
+import { SendEmailPayload } from '../shared/types';
 
 contextBridge.exposeInMainWorld('ipcRenderer', {
     on(channel: string, listener: (...args: any[]) => void) {
@@ -22,8 +23,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     startGmailAuth: () => ipcRenderer.invoke('auth:start-gmail'),
     getAccounts: () => ipcRenderer.invoke('account:list'),
     syncEmails: (id: string) => ipcRenderer.invoke('email:sync', id),
-    sendEmail: (data: { accountId: string, to: string, subject: string, body: string }) =>
-        ipcRenderer.invoke('email:send', data),
+    sendEmail: (data: SendEmailPayload) => ipcRenderer.invoke('email:send', data),
     deleteEmail: (accountId: string, emailId: string) =>
         ipcRenderer.invoke('email:delete', { accountId, emailId }),
     markAsRead: (accountId: string, emailId: string) =>

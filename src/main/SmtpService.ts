@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { SecureStore } from './SecureStore';
+import { Attachment } from '../shared/types';
 
 export class SmtpService {
     private secureStore: SecureStore;
@@ -8,7 +9,7 @@ export class SmtpService {
         this.secureStore = secureStore;
     }
 
-    async sendEmail(accountId: string, to: string, subject: string, body: string): Promise<boolean> {
+    async sendEmail(accountId: string, to: string, subject: string, body: string, attachments: Attachment[] = []): Promise<boolean> {
         // 1. Get the same token used for reading emails
         const accessToken = this.secureStore.getSecret(`${accountId}:access_token`);
 
@@ -26,13 +27,22 @@ export class SmtpService {
             },
         });
 
+        // [NEW] Map our Attachment type to Nodemailer's expected format
+        const mailAttachments = attachments.map(att => ({
+            filename: att.filename,
+            content: att.content,
+            encoding: 'base64',
+            contentType: att.contentType
+        }));
+
         try {
             // 3. Send the email
             await transporter.sendMail({
                 from: accountId,
                 to: to,
                 subject: subject,
-                html: body, // We assume the body is HTML (or plain text, which works in HTML field too)
+                html: body,
+                attachments: mailAttachments // [NEW] Add attachments to payload
             });
             return true;
         } catch (error) {

@@ -1,21 +1,60 @@
-import React, { useState } from 'react';
-import { X, Send, Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Send, Loader2, Paperclip, Trash2 } from 'lucide-react';
 import { ToastType } from './Toast';
+import { Attachment } from '../../shared/types';
 
 interface ComposeModalProps {
     isOpen: boolean;
     onClose: () => void;
     fromAccount: string;
-    onShowToast: (msg: string, type: ToastType) => void; // <--- New Prop
+    onShowToast: (msg: string, type: ToastType) => void;
 }
 
 export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fromAccount, onShowToast }) => {
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
+    const [attachments, setAttachments] = useState<Attachment[]>([]); // [NEW] State for files
     const [isSending, setIsSending] = useState(false);
 
+    // [NEW] Ref for hidden file input
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     if (!isOpen) return null;
+
+    // [NEW] Handle File Selection
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const newFiles = Array.from(e.target.files);
+
+            const processedFiles: Attachment[] = await Promise.all(newFiles.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const result = reader.result as string;
+                        // Extract Base64 part (remove "data:image/png;base64," prefix)
+                        const content = result.split(',')[1];
+                        resolve({
+                            filename: file.name,
+                            contentType: file.type || 'application/octet-stream',
+                            size: file.size,
+                            content: content
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }));
+
+            setAttachments(prev => [...prev, ...processedFiles]);
+        }
+        // Reset input so same file can be selected again if needed
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // [NEW] Remove attachment
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSend = async () => {
         if (!to || !subject || !body) {
@@ -30,15 +69,18 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                 accountId: fromAccount,
                 to,
                 subject,
-                body
+                body,
+                attachments // [NEW] Pass attachments
             });
 
             if (result.success) {
                 onShowToast("Email Sent Successfully!", 'success');
-                onClose();
+                // Reset Form
                 setTo('');
                 setSubject('');
                 setBody('');
+                setAttachments([]);
+                onClose();
             } else {
                 onShowToast("Failed to send: " + result.error, 'error');
             }
@@ -64,6 +106,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
 
                 {/* Form */}
                 <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
+                    {/* From/To Inputs */}
                     <div className="flex items-center space-x-2">
                         <span className="text-sm text-gray-400 w-16">From:</span>
                         <span className="text-sm text-gray-200 font-medium">{fromAccount}</span>
@@ -92,6 +135,24 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                         />
                     </div>
 
+                    {/* [NEW] Attachment List Area */}
+                    {attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 py-2">
+                            {attachments.map((att, idx) => (
+                                <div key={idx} className="flex items-center bg-gray-700/50 border border-gray-600 rounded-md pl-3 pr-1 py-1">
+                                    <span className="text-xs text-gray-200 truncate max-w-[150px]">{att.filename}</span>
+                                    <span className="text-[10px] text-gray-500 ml-2">{(att.size / 1024).toFixed(0)}KB</span>
+                                    <button
+                                        onClick={() => removeAttachment(idx)}
+                                        className="ml-2 p-1 hover:bg-gray-600 rounded-md text-gray-400 hover:text-red-400 transition-colors"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     <textarea
                         value={body}
                         onChange={e => setBody(e.target.value)}
@@ -101,7 +162,25 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-gray-700 flex justify-end">
+                <div className="p-4 border-t border-gray-700 flex justify-between items-center bg-gray-850">
+                    {/* [NEW] Attachment Button */}
+                    <div>
+                        <input
+                            type="file"
+                            multiple
+                            ref={fileInputRef}
+                            onChange={handleFileSelect}
+                            className="hidden"
+                        />
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-gray-400 hover:text-white p-2 hover:bg-gray-700 rounded-full transition-colors flex items-center text-sm"
+                            title="Attach File"
+                        >
+                            <Paperclip size={18} />
+                        </button>
+                    </div>
+
                     <button
                         onClick={handleSend}
                         disabled={isSending}
