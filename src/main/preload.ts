@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     deleteSecret: (k: string) => ipcRenderer.invoke('secret:delete', k),
     startGmailAuth: () => ipcRenderer.invoke('auth:start-gmail'),
     getAccounts: () => ipcRenderer.invoke('account:list'),
+
+    // [NEW] Update Signature
+    updateSignature: (accountId: string, signature: string) =>
+        ipcRenderer.invoke('account:updateSignature', { accountId, signature }),
+
     syncEmails: (id: string) => ipcRenderer.invoke('email:sync', id),
     sendEmail: (data: SendEmailPayload) => ipcRenderer.invoke('email:send', data),
 
@@ -29,7 +34,5 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
         ipcRenderer.invoke('email:delete', { accountId, emailId }),
     markAsRead: (accountId: string, emailId: string) =>
         ipcRenderer.invoke('email:markRead', { accountId, emailId }),
-
-    // [NEW] Open external link
     openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
 })

@@ -5,10 +5,10 @@ import { EmailList } from './components/EmailList';
 import { EmailViewer } from './components/EmailViewer';
 import { AddAccountModal } from './components/AddAccountModal';
 import { ComposeModal } from './components/ComposeModal';
+import { SettingsModal } from './components/SettingsModal'; // [NEW]
 import { ToastContainer } from './components/Toast';
 import { Loader2 } from 'lucide-react';
 
-// Custom Hooks
 import { useToast } from './hooks/useToast';
 import { useMail } from './hooks/useMail';
 
@@ -17,6 +17,8 @@ function App() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [isComposeOpen, setIsComposeOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // [NEW]
+    const [accountToEdit, setAccountToEdit] = useState<Account | null>(null); // [NEW]
 
     const [selectedFolder, setSelectedFolder] = useState('inbox');
     const [selectedAccount, setSelectedAccount] = useState<string>('');
@@ -30,8 +32,6 @@ function App() {
     }, []);
 
     const handleSyncSuccess = useCallback((fetchedEmails: Email[]) => {
-        // If no email is selected, or the selected one isn't in the new list, auto-select first
-        // (Optional logic: currently we only auto-select if nothing is selected)
         setSelectedEmail(prev => {
             if (!prev && fetchedEmails.length > 0) return fetchedEmails[0];
             return prev;
@@ -52,7 +52,6 @@ function App() {
         onSyncSuccess: handleSyncSuccess
     });
 
-    // Auto-select first account if loaded and none selected
     useEffect(() => {
         if (!selectedAccount && accounts.length > 0) {
             setSelectedAccount(accounts[0].id);
@@ -61,26 +60,49 @@ function App() {
 
     useEffect(() => {
         if (selectedEmail && !selectedEmail.read) {
-            // Add a small delay so if you just click through quickly it doesn't mark everything
-            // Or remove timeout for instant marking.
             const timer = setTimeout(() => {
                 markAsRead(selectedEmail.id);
-
-                // Also update local selectedEmail state so the UI (like bolding) updates
-                // inside the viewer if we used that prop there
                 setSelectedEmail(prev => prev ? { ...prev, read: true } : null);
             }, 500);
-
             return () => clearTimeout(timer);
         }
     }, [selectedEmail, markAsRead]);
 
-    // Wrapper to handle UI side-effects of deletion (clearing selection)
     const handleDeleteWrapper = async (emailId: string) => {
         if (selectedEmail?.id === emailId) {
             setSelectedEmail(null);
         }
         await deleteEmail(emailId);
+    };
+
+    const currentAccountObj = accounts.find(a => a.id === selectedAccount);
+
+    // [NEW] Handle opening settings
+    const handleOpenSettings = (account: Account) => {
+        setAccountToEdit(account);
+        setIsSettingsOpen(true);
+    };
+
+    // [NEW] Handle saving settings
+    const handleSaveSettings = async (accountId: string, signature: string) => {
+        try {
+            // @ts-ignore
+            const result = await window.ipcRenderer.updateSignature(accountId, signature);
+            if (result.success) {
+                addToast('Signature updated!', 'success');
+                // Trigger a "refresh" of accounts implicitly by the way useMail hooks listener works,
+                // or we might need to manually trigger a re-fetch of accounts if the listener doesn't catch this update.
+                // For MVP, simplistic way: reload window or we can add a method to useMail to refresh accounts.
+                // Since our useMail only loads accounts on mount and on auth success, we might need a manual refresh.
+                // Let's force a reload for simplicity in MVP or we update local state.
+                window.location.reload();
+            } else {
+                addToast('Failed to update signature', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            addToast('Error saving settings', 'error');
+        }
     };
 
     return (
@@ -98,6 +120,15 @@ function App() {
                 onClose={() => setIsComposeOpen(false)}
                 fromAccount={selectedAccount}
                 onShowToast={addToast}
+                signature={currentAccountObj?.signature}
+            />
+
+            {/* [NEW] Settings Modal */}
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                account={accountToEdit}
+                onSave={handleSaveSettings}
             />
 
             <Sidebar
@@ -110,6 +141,7 @@ function App() {
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                 onOpenAddAccount={() => setIsAddAccountOpen(true)}
                 onOpenCompose={() => setIsComposeOpen(true)}
+                onOpenSettings={handleOpenSettings} // [NEW]
             />
 
             <div className="flex flex-1 overflow-hidden">

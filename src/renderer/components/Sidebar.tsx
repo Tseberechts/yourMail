@@ -1,6 +1,6 @@
 import React from 'react';
-import { Mail, Shield, ArrowRight, Plus, PenSquare } from 'lucide-react';
-import { Account } from '../../shared/types';
+import {ArrowRight, Mail, PenSquare, Plus, Settings, Shield} from 'lucide-react';
+import {Account} from '../../shared/types';
 
 interface SidebarProps {
     accounts: Account[];
@@ -12,6 +12,7 @@ interface SidebarProps {
     onToggleCollapse: () => void;
     onOpenAddAccount: () => void;
     onOpenCompose: () => void;
+    onOpenSettings: (account: Account) => void; // [NEW] Callback
 }
 
 const FOLDERS = ['Inbox', 'Sent', 'Drafts', 'Trash'];
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     onToggleCollapse,
                                                     onOpenAddAccount,
                                                     onOpenCompose,
+                                                    onOpenSettings, // [NEW]
                                                 }) => {
     return (
         <div className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-gray-800 border-r border-gray-700 transition-all duration-300 flex flex-col`}>
@@ -35,7 +37,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     YourMail
                 </h1>
                 <button onClick={onToggleCollapse} className="text-gray-400 hover:text-white">
-                    <ArrowRight size={18} className={`transform transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+                    <ArrowRight
+                        size={18}
+                        className={`transform transition-transform ${collapsed ? '' : 'rotate-180'}`}
+                    />
                 </button>
             </div>
 
@@ -49,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'bg-sky-600 hover:bg-sky-500 text-white font-semibold'
                     }`}
                 >
-                    <PenSquare size={18} className={collapsed ? '' : 'mr-2'} />
+                    <PenSquare size={18} className={collapsed ? '' : 'mr-2'}/>
                     {!collapsed && "Compose"}
                 </button>
             </div>
@@ -58,33 +63,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex-1 overflow-y-auto p-2 space-y-4">
                 {accounts && accounts.map((acc) => {
                     if (!acc || !acc.id) return null;
+                    const isSelected = selectedAccountId === acc.id;
 
                     return (
-                        <div key={acc.id}>
+                        <div key={acc.id} className="group/account">
                             <div
                                 onClick={() => onSelectAccount(acc.id)}
                                 className={`flex items-center justify-between p-2 rounded-md cursor-pointer mb-1 transition-colors ${
-                                    selectedAccountId === acc.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700/50'
+                                    isSelected ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700/50'
                                 }`}
                             >
-                                <div className="flex items-center space-x-3 min-w-0">
+                                <div className="flex items-center space-x-3 min-w-0 flex-1">
                                     {acc.type === 'gmail' ? (
-                                        <Mail size={18} className="text-red-400 flex-shrink-0" />
+                                        <Mail size={18} className="text-red-400 flex-shrink-0"/>
                                     ) : (
-                                        <Shield size={18} className="text-blue-400 flex-shrink-0" />
+                                        <Shield size={18} className="text-blue-400 flex-shrink-0"/>
                                     )}
                                     {!collapsed && <span className="text-sm font-medium truncate">{acc.name}</span>}
                                 </div>
 
-                                {/* Account-level Unread Badge */}
-                                {!collapsed && acc.unread > 0 && (
-                                    <span className="bg-sky-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.2rem] text-center">
-                     {acc.unread}
-                   </span>
+                                {!collapsed && (
+                                    <div className="flex items-center space-x-2">
+                                        {/* [NEW] Settings Button (Visible on hover or selection) */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onOpenSettings(acc);
+                                            }}
+                                            className={`p-1 rounded text-gray-400 hover:text-white hover:bg-gray-600 transition-opacity ${
+                                                isSelected ? 'opacity-100' : 'opacity-0 group-hover/account:opacity-100'
+                                            }`}
+                                            title="Settings"
+                                        >
+                                            <Settings size={14}/>
+                                        </button>
+
+                                        {acc.unread > 0 && (
+                                            <span className="bg-sky-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.2rem] text-center">
+                                                {acc.unread}
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 
-                            {selectedAccountId === acc.id && !collapsed && (
+                            {isSelected && !collapsed && (
                                 <div className="ml-4 space-y-0.5 mt-1">
                                     {FOLDERS.map((folder) => (
                                         <div
@@ -99,8 +122,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <span>{folder}</span>
                                             {folder === 'Inbox' && acc.unread > 0 && (
                                                 <span className="bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded text-[10px] min-w-[1.25rem] text-center">
-                          {acc.unread}
-                        </span>
+                                                    {acc.unread}
+                                                </span>
                                             )}
                                         </div>
                                     ))}
@@ -116,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={onOpenAddAccount}
                     className="flex items-center justify-center w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-xs font-medium transition-colors border border-gray-600 hover:border-gray-500"
                 >
-                    <Plus size={14} className={collapsed ? '' : 'mr-2'} />
+                    <Plus size={14} className={collapsed ? '' : 'mr-2'}/>
                     {!collapsed && 'Add Account'}
                 </button>
             </div>

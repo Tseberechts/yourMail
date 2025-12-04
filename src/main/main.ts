@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron' // [UPDATED] Import shell
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import path from 'node:path'
 import { SecureStore } from './SecureStore'
 import { AuthService } from './AuthService'
@@ -56,7 +56,6 @@ function createWindow() {
         win?.webContents.send('main-process-message', (new Date).toLocaleString())
     })
 
-    // [NEW] Handle opening external links from the renderer
     ipcMain.handle('shell:open', async (_event, url: string) => {
         await shell.openExternal(url);
     });
@@ -82,9 +81,19 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-    // Existing Handlers
     ipcMain.handle('secret:set', (_e, k, v) => secureStore.setSecret(k, v));
     ipcMain.handle('account:list', () => accountStore.getAccounts());
+
+    // [NEW] Update Signature Handler
+    ipcMain.handle('account:updateSignature', (_e, data) => {
+        try {
+            accountStore.updateSignature(data.accountId, data.signature);
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
     ipcMain.handle('auth:start-gmail', async () => {
         if (win) {
             try { await authService.startGmailAuth(win); return { success: true }; }
@@ -99,8 +108,6 @@ app.whenReady().then(() => {
         }
         catch (e: any) { return { success: false, error: e.message }; }
     });
-
-    // Send Email Handler
     ipcMain.handle('email:send', async (_e, data: SendEmailPayload) => {
         try {
             await smtpService.sendEmail(
@@ -114,7 +121,6 @@ app.whenReady().then(() => {
         }
         catch (e: any) { return { success: false, error: e.message }; }
     });
-
     ipcMain.handle('email:delete', async (_event, data: { accountId: string, emailId: string }) => {
         try {
             await imapService.deleteEmail(data.accountId, data.emailId);
@@ -133,7 +139,6 @@ app.whenReady().then(() => {
             return { success: false, error: error.message };
         }
     });
-
 
     createWindow()
 })

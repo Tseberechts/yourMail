@@ -18,12 +18,29 @@ export class AccountStore {
     }
 
     getAccounts(): Account[] {
-        return this.store.get('accounts');
+        const accounts = this.store.get('accounts');
+
+        // Ensure legacy data has a signature
+        return accounts.map(acc => ({
+            ...acc,
+            signature: acc.signature || `\n\n--\nSent with YourMail\n${acc.name}`
+        }));
+    }
+
+    // [NEW] Update Signature
+    updateSignature(id: string, signature: string): void {
+        const accounts = this.store.get('accounts');
+        const updatedAccounts = accounts.map(acc => {
+            if (acc.id === id) {
+                return { ...acc, signature };
+            }
+            return acc;
+        });
+        this.store.set('accounts', updatedAccounts);
     }
 
     addAccount(account: Account): void {
         const accounts = this.store.get('accounts');
-        // Prevent duplicates based on ID (email)
         if (!accounts.find(a => a.id === account.id)) {
             accounts.push(account);
             this.store.set('accounts', accounts);

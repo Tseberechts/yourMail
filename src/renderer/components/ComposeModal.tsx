@@ -8,7 +8,7 @@ interface ComposeModalProps {
     onClose: () => void;
     fromAccount: string;
     onShowToast: (msg: string, type: ToastType) => void;
-    signature?: string; // [NEW] Optional signature
+    signature?: string;
 }
 
 export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fromAccount, onShowToast, signature }) => {
@@ -20,18 +20,21 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // [NEW] Pre-fill signature when opening
+    // [UPDATED] Robust Signature Logic
     useEffect(() => {
-        if (isOpen && signature && !body) {
-            setBody(signature);
-        } else if (!isOpen) {
-            // Reset when closed
+        if (isOpen) {
+            // When opening, if body is empty, insert signature.
+            // Using a callback in setBody ensures we don't overwrite if state was somehow preserved.
+            setBody(prev => prev ? prev : (signature || ''));
+        } else {
+            // Cleanup when closing
             setBody('');
             setAttachments([]);
             setTo('');
             setSubject('');
         }
-    }, [isOpen, signature]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]); // Only run when open state changes
 
     if (!isOpen) return null;
 
