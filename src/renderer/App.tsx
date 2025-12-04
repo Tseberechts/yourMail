@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Account, Email } from '../shared/types';
 import { Sidebar } from './components/Sidebar';
 import { EmailList } from './components/EmailList';
 import { EmailViewer } from './components/EmailViewer';
 import { AddAccountModal } from './components/AddAccountModal';
+import { ComposeModal } from './components/ComposeModal';
 import { Loader2 } from 'lucide-react';
 
 function App() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+    const [isComposeOpen, setIsComposeOpen] = useState(false);
 
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<string>('');
@@ -18,19 +20,65 @@ function App() {
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [isLoadingEmails, setIsLoadingEmails] = useState(false);
 
-    // 1. Load Accounts on Startup
+    // Fetch Logic
+    const fetchEmails = useCallback(async () => {
+        if (!selectedAccount) return;
+        setIsLoadingEmails(true);
+        try {
+            // @ts-ignore
+            const result = await window.ipcRenderer.syncEmails(selectedAccount);
+            if (result.success) {
+                setEmails(result.emails);
+                if (!selectedEmail && result.emails.length > 0) setSelectedEmail(result.emails[0]);
+            } else {
+                console.error("Failed to sync:", result.error);
+            }
+        } catch (e) {
+            console.error("Sync error:", e);
+        } finally {
+            setIsLoadingEmails(false);
+        }
+    }, [selectedAccount, selectedFolder, selectedEmail]);
+
+    // Handle Deletion (Optimistic UI)
+    const handleDeleteEmail = async (emailId: string) => {
+        if (!selectedAccount) return;
+
+        // 1. Optimistic Update: Remove from UI immediately
+        const previousEmails = [...emails];
+        setEmails(prev => prev.filter(e => e.id !== emailId));
+
+        // If we deleted the currently selected email, deselect it
+        if (selectedEmail?.id === emailId) {
+            setSelectedEmail(null);
+        }
+
+        // 2. Call Backend
+        try {
+            // @ts-ignore
+            const result = await window.ipcRenderer.deleteEmail(selectedAccount, emailId);
+            if (!result.success) {
+                // Revert on failure
+                console.error("Delete failed on server, reverting UI");
+                setEmails(previousEmails);
+                alert("Failed to delete email: " + result.error);
+            }
+        } catch (error) {
+            console.error("Delete error", error);
+            setEmails(previousEmails);
+        }
+    };
+
+    // Setup Listeners
     useEffect(() => {
         const loadAccounts = async () => {
             // @ts-ignore
             const storedAccounts = await window.ipcRenderer.getAccounts();
             setAccounts(storedAccounts);
-            if (storedAccounts.length > 0) {
-                setSelectedAccount(storedAccounts[0].id);
-            }
+            if (storedAccounts.length > 0) setSelectedAccount(storedAccounts[0].id);
         };
         loadAccounts();
 
-        // Listen for new accounts
         // @ts-ignore
         const removeListener = window.ipcRenderer.on('auth:success', (_event, newAccount: Account) => {
             setAccounts(prev => {
@@ -39,42 +87,20 @@ function App() {
             });
             setSelectedAccount(newAccount.id);
         });
-
-        return () => {
-            if (removeListener) removeListener();
-        };
+        return () => { if (removeListener) removeListener(); };
     }, []);
 
-    // 2. Fetch Emails when Selected Account Changes
+    // Auto Refresh
     useEffect(() => {
-        if (!selectedAccount) return;
-
-        const fetchEmails = async () => {
-            setIsLoadingEmails(true);
-            setEmails([]); // Clear previous view
-            try {
-                console.log("Fetching emails for:", selectedAccount);
-                // @ts-ignore
-                const result = await window.ipcRenderer.syncEmails(selectedAccount);
-                if (result.success) {
-                    setEmails(result.emails);
-                    if (result.emails.length > 0) setSelectedEmail(result.emails[0]);
-                } else {
-                    console.error("Failed to sync:", result.error);
-                }
-            } catch (e) {
-                console.error("Sync error:", e);
-            } finally {
-                setIsLoadingEmails(false);
-            }
-        };
-
         fetchEmails();
-    }, [selectedAccount, selectedFolder]); // Re-run if account or folder changes
+        const intervalId = setInterval(() => { console.log("Auto-refreshing..."); fetchEmails(); }, 60000);
+        return () => clearInterval(intervalId);
+    }, [fetchEmails]);
 
     return (
         <div className="flex h-screen w-screen bg-gray-900 text-white overflow-hidden font-sans relative">
             <AddAccountModal isOpen={isAddAccountOpen} onClose={() => setIsAddAccountOpen(false)} />
+            <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} fromAccount={selectedAccount} />
 
             <Sidebar
                 accounts={accounts}
@@ -85,6 +111,7 @@ function App() {
                 collapsed={sidebarCollapsed}
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                 onOpenAddAccount={() => setIsAddAccountOpen(true)}
+                onOpenCompose={() => setIsComposeOpen(true)}
             />
 
             <div className="flex flex-1 overflow-hidden">
@@ -98,9 +125,11 @@ function App() {
                         selectedEmailId={selectedEmail?.id || null}
                         onSelectEmail={setSelectedEmail}
                         folderName={selectedFolder}
+                        onRefresh={fetchEmails}
+                        isRefreshing={isLoadingEmails}
+                        onDeleteEmail={handleDeleteEmail} // <--- Pass Handler
                     />
                 )}
-
                 <EmailViewer email={selectedEmail} />
             </div>
         </div>

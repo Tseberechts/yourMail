@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Shield, ArrowRight, Plus } from 'lucide-react';
+import { Mail, Shield, ArrowRight, Plus, PenSquare } from 'lucide-react';
 import { Account } from '../../shared/types';
 
 interface SidebarProps {
@@ -11,6 +11,7 @@ interface SidebarProps {
     collapsed: boolean;
     onToggleCollapse: () => void;
     onOpenAddAccount: () => void;
+    onOpenCompose: () => void; // <--- NEW PROP
 }
 
 const FOLDERS = ['Inbox', 'Sent', 'Drafts', 'Trash'];
@@ -24,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     collapsed,
                                                     onToggleCollapse,
                                                     onOpenAddAccount,
+                                                    onOpenCompose, // <--- Destructure
                                                 }) => {
     return (
         <div className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-gray-800 border-r border-gray-700 transition-all duration-300 flex flex-col`}>
@@ -37,11 +39,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
             </div>
 
+            {/* Compose Button */}
+            <div className="p-3">
+                <button
+                    onClick={onOpenCompose}
+                    className={`w-full flex items-center justify-center py-2.5 rounded-lg shadow-md transition-all ${
+                        collapsed
+                            ? 'bg-gray-700 text-sky-400 hover:bg-gray-600'
+                            : 'bg-sky-600 hover:bg-sky-500 text-white font-semibold'
+                    }`}
+                >
+                    <PenSquare size={18} className={collapsed ? '' : 'mr-2'} />
+                    {!collapsed && "Compose"}
+                </button>
+            </div>
+
             {/* Account List */}
             <div className="flex-1 overflow-y-auto p-2 space-y-4">
-                {/* Defensive check: ensure accounts exists and map carefully */}
                 {accounts && accounts.map((acc) => {
-                    // Guard against undefined/null accounts in the array
                     if (!acc || !acc.id) return null;
 
                     return (
@@ -60,7 +75,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {!collapsed && <span className="text-sm font-medium truncate">{acc.name}</span>}
                             </div>
 
-                            {/* Folders (Only show for selected account) */}
                             {selectedAccountId === acc.id && !collapsed && (
                                 <div className="ml-4 space-y-0.5 mt-1">
                                     {FOLDERS.map((folder) => (
