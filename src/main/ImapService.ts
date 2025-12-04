@@ -11,14 +11,12 @@ export class ImapService {
     }
 
     async fetchEmails(accountId: string): Promise<Email[]> {
-        // 1. Retrieve the Access Token
         const accessToken = this.secureStore.getSecret(`${accountId}:access_token`);
 
         if (!accessToken) {
             throw new Error(`No access token found for ${accountId}`);
         }
 
-        // 2. Configure the IMAP Client
         const client = new ImapFlow({
             host: 'imap.gmail.com',
             port: 993,
@@ -27,42 +25,38 @@ export class ImapService {
                 user: accountId,
                 accessToken: accessToken,
             },
-            logger: false, // Turn off logging for production
+            logger: false,
         });
 
         const emails: Email[] = [];
 
         try {
-            // 3. Connect
             await client.connect();
-
-            // 4. Open Inbox
             const lock = await client.getMailboxLock('INBOX');
 
             try {
-                // 5. Fetch latest 20 emails
-                // fetchOne is an async generator
-                for await (const message of client.fetch('1:*', { envelope: true, source: true }, { uid: true })) {
-                    // In a real app, we'd parse this more robustly.
-                    // For now, we manually map envelope data to our Email type
+                // Fetch envelope (headers) and internal date
+                for await (const message of client.fetch('1:*', { envelope: true, internalDate: true }, { uid: true })) {
                     const envelope = message.envelope;
 
-                    // Basic parsing
+                    // Use internalDate (server time) or envelope date
+                    const dateObj = message.internalDate || envelope.date || new Date();
+
                     const email: Email = {
                         id: message.uid.toString(),
                         subject: envelope.subject || '(No Subject)',
                         from: envelope.from?.[0]?.name || envelope.from?.[0]?.address || 'Unknown',
-                        date: envelope.date?.toLocaleString() || new Date().toISOString(),
-                        body: 'Loading content...', // We fetch body on demand usually, or parse 'source' here
+                        // CHANGE: Store as ISO string for reliable sorting
+                        date: dateObj.toISOString(),
+                        body: 'Loading content...',
                         tags: [],
                         read: false
                     };
 
-                    // Prepend to array to show newest first
+                    // Default to newest first (unshift)
                     emails.unshift(email);
 
-                    // Limit to 20 for this demo
-                    if (emails.length >= 20) break;
+                    if (emails.length >= 50) break; // Increased limit slightly
                 }
             } finally {
                 lock.release();
@@ -71,8 +65,6 @@ export class ImapService {
             await client.logout();
         } catch (err) {
             console.error("IMAP Fetch Error:", err);
-            // In a real app, if this fails with "Authentication failed",
-            // we would trigger the token refresh flow here.
             throw err;
         }
 
