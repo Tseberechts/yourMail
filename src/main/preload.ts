@@ -27,12 +27,13 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     updateSignature: (accountId: string, signature: string) =>
         ipcRenderer.invoke('account:updateSignature', { accountId, signature }),
 
-    syncEmails: (id: string) => ipcRenderer.invoke('email:sync', id),
+    syncEmails: (arg: string | { accountId: string, path: string }) => ipcRenderer.invoke('email:sync', arg),
+    getMailboxes: (accountId: string) => ipcRenderer.invoke('email:getMailboxes', accountId),
     sendEmail: (data: SendEmailPayload) => ipcRenderer.invoke('email:send', data),
 
-    deleteEmail: (accountId: string, emailId: string) =>
-        ipcRenderer.invoke('email:delete', { accountId, emailId }),
-    markAsRead: (accountId: string, emailId: string) =>
-        ipcRenderer.invoke('email:markRead', { accountId, emailId }),
+    deleteEmail: (accountId: string, emailId: string, path?: string) =>
+        ipcRenderer.invoke('email:delete', { accountId, emailId, path }),
+    markAsRead: (accountId: string, emailId: string, path?: string) =>
+        ipcRenderer.invoke('email:markRead', { accountId, emailId, path }),
     openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
 })

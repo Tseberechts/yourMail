@@ -20,7 +20,7 @@ function App() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false); // [NEW]
     const [accountToEdit, setAccountToEdit] = useState<Account | null>(null); // [NEW]
 
-    const [selectedFolder, setSelectedFolder] = useState('inbox');
+    const [selectedFolder, setSelectedFolder] = useState('INBOX');
     const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
@@ -47,6 +47,7 @@ function App() {
         markAsRead,
     } = useMail({
         selectedAccount,
+        selectedFolder,
         addToast,
         onAuthSuccess: handleAuthSuccess,
         onSyncSuccess: handleSyncSuccess
@@ -123,7 +124,6 @@ function App() {
                 signature={currentAccountObj?.signature}
             />
 
-            {/* [NEW] Settings Modal */}
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
@@ -141,7 +141,7 @@ function App() {
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                 onOpenAddAccount={() => setIsAddAccountOpen(true)}
                 onOpenCompose={() => setIsComposeOpen(true)}
-                onOpenSettings={handleOpenSettings} // [NEW]
+                onOpenSettings={handleOpenSettings}
             />
 
             <div className="flex flex-1 overflow-hidden">
@@ -154,10 +154,10 @@ function App() {
                         emails={emails}
                         selectedEmailId={selectedEmail?.id || null}
                         onSelectEmail={setSelectedEmail}
-                        folderName={selectedFolder}
+                        folderName={selectedFolder} // Pass path as name for header
                         onRefresh={() => {
                             fetchEmails();
-                            addToast("Refreshing inbox...", 'info');
+                            addToast("Refreshing...", 'info');
                         }}
                         isRefreshing={isLoadingEmails}
                         onDeleteEmail={handleDeleteWrapper}

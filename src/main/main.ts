@@ -101,13 +101,28 @@ app.whenReady().then(() => {
         }
         return { success: false, error: "No window" };
     });
-    ipcMain.handle('email:sync', async (_e, accId) => {
+
+    ipcMain.handle('email:getMailboxes', async (_e, accId) => {
         try {
-            const result = await imapService.fetchEmails(accId);
+            const mailboxes = await imapService.getMailboxes(accId);
+            return { success: true, mailboxes };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    });
+
+    ipcMain.handle('email:sync', async (_e, data: { accountId: string, path: string }) => {
+        try {
+            // Handle legacy calls that might just pass a string ID
+            const accId = typeof data === 'string' ? data : data.accountId;
+            const path = typeof data === 'string' ? 'INBOX' : (data.path || 'INBOX');
+
+            const result = await imapService.fetchEmails(accId, path);
             return { success: true, emails: result.emails, unreadCount: result.unreadCount };
         }
         catch (e: any) { return { success: false, error: e.message }; }
     });
+
     ipcMain.handle('email:send', async (_e, data: SendEmailPayload) => {
         try {
             await smtpService.sendEmail(
@@ -121,18 +136,20 @@ app.whenReady().then(() => {
         }
         catch (e: any) { return { success: false, error: e.message }; }
     });
-    ipcMain.handle('email:delete', async (_event, data: { accountId: string, emailId: string }) => {
+
+    ipcMain.handle('email:delete', async (_event, data: { accountId: string, emailId: string, path?: string }) => {
         try {
-            await imapService.deleteEmail(data.accountId, data.emailId);
+            await imapService.deleteEmail(data.accountId, data.emailId, data.path || 'INBOX');
             return { success: true };
         } catch (error: any) {
             console.error("Delete failed", error);
             return { success: false, error: error.message };
         }
     });
-    ipcMain.handle('email:markRead', async (_event, data: { accountId: string, emailId: string }) => {
+
+    ipcMain.handle('email:markRead', async (_event, data: { accountId: string, emailId: string, path?: string }) => {
         try {
-            await imapService.markAsRead(data.accountId, data.emailId);
+            await imapService.markAsRead(data.accountId, data.emailId, data.path || 'INBOX');
             return { success: true };
         } catch (error: any) {
             console.error("Mark read failed", error);

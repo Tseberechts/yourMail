@@ -1,11 +1,20 @@
 export type AccountType = 'gmail' | 'exchange';
 
+export interface Mailbox {
+    path: string;      // e.g., "INBOX", "[Gmail]/Sent Mail"
+    name: string;      // e.g., "Inbox", "Sent Mail"
+    delimiter: string; // e.g., "/"
+    flags: string[];   // e.g., ["\HasChildren", "\Sent"]
+    type?: 'inbox' | 'sent' | 'trash' | 'drafts' | 'junk' | 'archive' | 'normal';
+}
+
 export interface Account {
     id: string;
     name: string;
     type: AccountType;
     unread: number;
-    signature?: string; // [NEW] User signature
+    signature?: string;
+    mailboxes?: Mailbox[]; // [NEW] Cache mailboxes on the account
 }
 
 // Attachment Definition

@@ -4,12 +4,13 @@ import { ToastType } from '../components/Toast';
 
 interface UseMailProps {
     selectedAccount: string;
+    selectedFolder: string; // [NEW]
     addToast: (msg: string, type: ToastType) => void;
     onAuthSuccess?: (account: Account) => void;
     onSyncSuccess?: (emails: Email[]) => void;
 }
 
-export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSuccess }: UseMailProps) => {
+export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSuccess, onSyncSuccess }: UseMailProps) => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [emails, setEmails] = useState<Email[]>([]);
     const [isLoadingEmails, setIsLoadingEmails] = useState(false);
@@ -52,13 +53,18 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
         setIsLoadingEmails(true);
         try {
             // @ts-ignore
-            const result = await window.ipcRenderer.syncEmails(selectedAccount);
+            // Pass both accountId and the selected folder path
+            const result = await window.ipcRenderer.syncEmails({
+                accountId: selectedAccount,
+                path: selectedFolder || 'INBOX'
+            });
+
             if (result.success) {
                 const validEmails = result.emails.filter((e: Email) => !pendingDeletesRef.current.has(e.id));
                 setEmails(validEmails);
 
-                // UPDATE UNREAD COUNT IN STATE
-                if (typeof result.unreadCount === 'number') {
+                // Update unread count only if we are syncing INBOX (simplification for MVP)
+                if (typeof result.unreadCount === 'number' && (selectedFolder === 'INBOX' || !selectedFolder)) {
                     setAccounts(prevAccounts => prevAccounts.map(acc => {
                         if (acc.id === selectedAccount) {
                             return { ...acc, unread: result.unreadCount };
@@ -76,13 +82,12 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
         } finally {
             setIsLoadingEmails(false);
         }
-    }, [selectedAccount, onSyncSuccess]);
+    }, [selectedAccount, selectedFolder, onSyncSuccess]);
 
-    // Auto Refresh Interval
+    // Auto Refresh - Re-runs when folder or account changes
     useEffect(() => {
         fetchEmails();
         const intervalId = setInterval(() => {
-            console.log("Auto-refreshing...");
             fetchEmails();
         }, 60000);
         return () => clearInterval(intervalId);
@@ -100,7 +105,7 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
 
         try {
             // @ts-ignore
-            const result = await window.ipcRenderer.deleteEmail(selectedAccount, emailId);
+            const result = await window.ipcRenderer.deleteEmail(selectedAccount, emailId, selectedFolder || 'INBOX');
 
             if (!result.success) {
                 pendingDeletesRef.current.delete(emailId);
@@ -123,28 +128,25 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
     const markAsRead = async (emailId: string) => {
         if (!selectedAccount) return;
 
-        // 1. Optimistic Update: Email List
         setEmails(prev => prev.map(e => {
             if (e.id === emailId) return { ...e, read: true };
             return e;
         }));
 
-        // 2. Optimistic Update: Account Unread Count
-        setAccounts(prev => prev.map(acc => {
-            if (acc.id === selectedAccount) {
-                // Ensure we don't go below 0
-                return { ...acc, unread: Math.max(0, acc.unread - 1) };
-            }
-            return acc;
-        }));
+        if (selectedFolder === 'INBOX' || !selectedFolder) {
+            setAccounts(prev => prev.map(acc => {
+                if (acc.id === selectedAccount) {
+                    return { ...acc, unread: Math.max(0, acc.unread - 1) };
+                }
+                return acc;
+            }));
+        }
 
-        // 3. Call Backend (Silent, no toast needed)
         try {
             // @ts-ignore
-            await window.ipcRenderer.markAsRead(selectedAccount, emailId);
+            await window.ipcRenderer.markAsRead(selectedAccount, emailId, selectedFolder || 'INBOX');
         } catch (error) {
             console.error("Failed to mark as read on server", error);
-            // We usually don't revert UI for read-status to avoid jarring jumps
         }
     };
 
