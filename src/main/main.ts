@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron' // [UPDATED] Import shell
 import path from 'node:path'
 import { SecureStore } from './SecureStore'
 import { AuthService } from './AuthService'
@@ -56,6 +56,11 @@ function createWindow() {
         win?.webContents.send('main-process-message', (new Date).toLocaleString())
     })
 
+    // [NEW] Handle opening external links from the renderer
+    ipcMain.handle('shell:open', async (_event, url: string) => {
+        await shell.openExternal(url);
+    });
+
     if (VITE_DEV_SERVER_URL) {
         win.loadURL(VITE_DEV_SERVER_URL)
         win.webContents.openDevTools()
@@ -95,10 +100,9 @@ app.whenReady().then(() => {
         catch (e: any) { return { success: false, error: e.message }; }
     });
 
-    // [UPDATED] Send Email Handler
+    // Send Email Handler
     ipcMain.handle('email:send', async (_e, data: SendEmailPayload) => {
         try {
-            // Pass the attachments array (default to [] if undefined)
             await smtpService.sendEmail(
                 data.accountId,
                 data.to,

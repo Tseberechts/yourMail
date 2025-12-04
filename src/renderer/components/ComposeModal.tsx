@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Send, Loader2, Paperclip, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Send, Loader2, Paperclip } from 'lucide-react';
 import { ToastType } from './Toast';
 import { Attachment } from '../../shared/types';
 
@@ -8,21 +8,33 @@ interface ComposeModalProps {
     onClose: () => void;
     fromAccount: string;
     onShowToast: (msg: string, type: ToastType) => void;
+    signature?: string; // [NEW] Optional signature
 }
 
-export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fromAccount, onShowToast }) => {
+export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fromAccount, onShowToast, signature }) => {
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
-    const [attachments, setAttachments] = useState<Attachment[]>([]); // [NEW] State for files
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
     const [isSending, setIsSending] = useState(false);
 
-    // [NEW] Ref for hidden file input
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // [NEW] Pre-fill signature when opening
+    useEffect(() => {
+        if (isOpen && signature && !body) {
+            setBody(signature);
+        } else if (!isOpen) {
+            // Reset when closed
+            setBody('');
+            setAttachments([]);
+            setTo('');
+            setSubject('');
+        }
+    }, [isOpen, signature]);
 
     if (!isOpen) return null;
 
-    // [NEW] Handle File Selection
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files);
@@ -32,7 +44,6 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                     const reader = new FileReader();
                     reader.onload = () => {
                         const result = reader.result as string;
-                        // Extract Base64 part (remove "data:image/png;base64," prefix)
                         const content = result.split(',')[1];
                         resolve({
                             filename: file.name,
@@ -47,11 +58,9 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
 
             setAttachments(prev => [...prev, ...processedFiles]);
         }
-        // Reset input so same file can be selected again if needed
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    // [NEW] Remove attachment
     const removeAttachment = (index: number) => {
         setAttachments(prev => prev.filter((_, i) => i !== index));
     };
@@ -70,16 +79,11 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                 to,
                 subject,
                 body,
-                attachments // [NEW] Pass attachments
+                attachments
             });
 
             if (result.success) {
                 onShowToast("Email Sent Successfully!", 'success');
-                // Reset Form
-                setTo('');
-                setSubject('');
-                setBody('');
-                setAttachments([]);
                 onClose();
             } else {
                 onShowToast("Failed to send: " + result.error, 'error');
@@ -96,7 +100,6 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
             <div className="bg-gray-800 border border-gray-700 w-full max-w-2xl h-[80vh] rounded-t-xl sm:rounded-xl shadow-2xl flex flex-col animate-in fade-in zoom-in duration-200">
 
-                {/* Header */}
                 <div className="flex justify-between items-center px-4 py-3 border-b border-gray-700 bg-gray-850 rounded-t-xl">
                     <h3 className="font-semibold text-white">New Message</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -104,9 +107,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                     </button>
                 </div>
 
-                {/* Form */}
                 <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
-                    {/* From/To Inputs */}
                     <div className="flex items-center space-x-2">
                         <span className="text-sm text-gray-400 w-16">From:</span>
                         <span className="text-sm text-gray-200 font-medium">{fromAccount}</span>
@@ -135,7 +136,6 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                         />
                     </div>
 
-                    {/* [NEW] Attachment List Area */}
                     {attachments.length > 0 && (
                         <div className="flex flex-wrap gap-2 py-2">
                             {attachments.map((att, idx) => (
@@ -156,14 +156,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
                     <textarea
                         value={body}
                         onChange={e => setBody(e.target.value)}
-                        className="flex-1 bg-transparent text-white text-sm focus:outline-none resize-none placeholder-gray-600 leading-relaxed"
+                        className="flex-1 bg-transparent text-white text-sm focus:outline-none resize-none placeholder-gray-600 leading-relaxed h-full"
                         placeholder="Write your message here..."
                     />
                 </div>
 
-                {/* Footer */}
                 <div className="p-4 border-t border-gray-700 flex justify-between items-center bg-gray-850">
-                    {/* [NEW] Attachment Button */}
                     <div>
                         <input
                             type="file"

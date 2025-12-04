@@ -5,8 +5,10 @@ export interface Account {
     name: string;
     type: AccountType;
     unread: number;
+    signature?: string; // [NEW] User signature
 }
 
+// Attachment Definition
 export interface Attachment {
     filename: string;
     content: string; // Base64 string
@@ -27,7 +29,7 @@ export interface Email {
     attachments?: Attachment[];
 }
 
-// [NEW] Payload for sending email
+// Payload for sending email
 export interface SendEmailPayload {
     accountId: string;
     to: string;

@@ -65,7 +65,9 @@ export class AuthService {
                                 id: email,
                                 name: name || 'Gmail Account',
                                 type: 'gmail',
-                                unread: 0
+                                unread: 0,
+                                // [NEW] Default Signature
+                                signature: `\n\n--\nSent with YourMail\n${name}`
                             };
 
                             this.accountStore.addAccount(newAccount);

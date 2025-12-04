@@ -24,8 +24,12 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     getAccounts: () => ipcRenderer.invoke('account:list'),
     syncEmails: (id: string) => ipcRenderer.invoke('email:sync', id),
     sendEmail: (data: SendEmailPayload) => ipcRenderer.invoke('email:send', data),
+
     deleteEmail: (accountId: string, emailId: string) =>
         ipcRenderer.invoke('email:delete', { accountId, emailId }),
     markAsRead: (accountId: string, emailId: string) =>
         ipcRenderer.invoke('email:markRead', { accountId, emailId }),
+
+    // [NEW] Open external link
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
 })

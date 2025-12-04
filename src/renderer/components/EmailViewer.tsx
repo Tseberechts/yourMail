@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify';
 
 interface EmailViewerProps {
     email: Email | null;
-    onDelete: (emailId: string) => void; // <--- NEW PROP
+    onDelete: (emailId: string) => void;
 }
 
 export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => {
@@ -32,6 +32,18 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
         document.body.removeChild(link);
     };
 
+    // [NEW] Intercept Link Clicks
+    const handleBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement;
+        const anchor = target.closest('a');
+
+        if (anchor && anchor.href) {
+            e.preventDefault();
+            // @ts-ignore
+            window.ipcRenderer.openExternal(anchor.href);
+        }
+    };
+
     return (
         <div className="flex-1 flex flex-col bg-gray-900 min-w-0">
             {/* Toolbar */}
@@ -41,7 +53,6 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
                         <Archive size={18} />
                     </button>
 
-                    {/* DELETE BUTTON */}
                     <button
                         onClick={() => onDelete(email.id)}
                         className="p-2 hover:bg-red-900/30 text-gray-400 hover:text-red-400 rounded-md transition-colors"
@@ -84,6 +95,7 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
                         </div>
                     </div>
 
+                    {/* Attachments Section */}
                     {email.attachments && email.attachments.length > 0 && (
                         <div className="mb-6 pb-6 border-b border-gray-800">
                             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
@@ -112,6 +124,7 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
 
                     <div
                         className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-sm email-content"
+                        onClick={handleBodyClick}
                         dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
                 </div>
