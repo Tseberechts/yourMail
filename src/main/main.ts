@@ -1,17 +1,19 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
 import { SecureStore } from './SecureStore'
-import { AuthService } from './AuthService' // Import the new service
+import { AuthService } from './AuthService'
+import { AccountStore } from './AccountStore'
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
 
 let win: BrowserWindow | null
+
 // Initialize Services
 const secureStore = new SecureStore();
-const authService = new AuthService(secureStore);
+const accountStore = new AccountStore();
+const authService = new AuthService(secureStore, accountStore);
 
-// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
@@ -26,7 +28,6 @@ function createWindow() {
         },
     })
 
-    // Test active push message to Renderer-process.
     win.webContents.on('did-finish-load', () => {
         win?.webContents.send('main-process-message', (new Date).toLocaleString())
     })
@@ -52,19 +53,17 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-    // --- IPC Handlers for Security ---
-
-    // Save a secret
+    // Security Handlers
     ipcMain.handle('secret:set', (_event, key: string, value: string) => {
         return secureStore.setSecret(key, value);
     });
 
-    // Retrieve a secret (only for internal logic or specific UI fields)
-    ipcMain.handle('secret:get', (_event, key: string) => {
-        return secureStore.getSecret(key);
+    // Account Handlers
+    ipcMain.handle('account:list', () => {
+        return accountStore.getAccounts();
     });
 
-    // --- IPC Handlers for Auth ---
+    // Auth Handlers
     ipcMain.handle('auth:start-gmail', async () => {
         if (win) {
             try {

@@ -1,24 +1,30 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
-// --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
-    on(...args: Parameters<typeof ipcRenderer.on>) {
-        const [channel, listener] = args
-        return ipcRenderer.on(channel, (event, ...args) => listener(event, ...args))
-    },
-    off(...args: Parameters<typeof ipcRenderer.off>) {
-        const [channel, ...omit] = args
-        return ipcRenderer.off(channel, ...omit)
-    },
-    send(...args: Parameters<typeof ipcRenderer.send>) {
-        const [channel, ...omit] = args
-        return ipcRenderer.send(channel, ...omit)
-    },
-    invoke(...args: Parameters<typeof ipcRenderer.invoke>) {
-        const [channel, ...omit] = args
-        return ipcRenderer.invoke(channel, ...omit)
+    // 1. FIXED: 'on' now returns an unsubscribe function
+    on(channel: string, listener: (...args: any[]) => void) {
+        const subscription = (_event: IpcRendererEvent, ...args: any[]) => listener(...args);
+        ipcRenderer.on(channel, subscription);
+
+        // Return the cleanup function for React useEffect
+        return () => {
+            ipcRenderer.removeListener(channel, subscription);
+        };
     },
 
-    // You can expose other specific functions here
-    ping: () => ipcRenderer.invoke('ping'),
+    // 2. Standard IPC methods
+    send(channel: string, ...args: any[]) {
+        ipcRenderer.send(channel, ...args);
+    },
+    invoke(channel: string, ...args: any[]) {
+        return ipcRenderer.invoke(channel, ...args);
+    },
+
+    // 3. API Methods
+    setSecret: (key: string, value: string) => ipcRenderer.invoke('secret:set', key, value),
+    getSecret: (key: string) => ipcRenderer.invoke('secret:get', key),
+    deleteSecret: (key: string) => ipcRenderer.invoke('secret:delete', key),
+
+    startGmailAuth: () => ipcRenderer.invoke('auth:start-gmail'),
+    getAccounts: () => ipcRenderer.invoke('account:list'),
 })
