@@ -1,6 +1,7 @@
 import React from 'react';
 import { Archive, Trash2, Star, CornerDownLeft, Zap } from 'lucide-react';
 import { Email } from '../../shared/types';
+import DOMPurify from 'dompurify';
 
 interface EmailViewerProps {
     email: Email | null;
@@ -14,6 +15,13 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email }) => {
             </div>
         );
     }
+
+    // Sanitize the HTML content before rendering
+    const sanitizedHtml = DOMPurify.sanitize(email.htmlBody || email.body, {
+        USE_PROFILES: { html: true }, // Ensure we keep HTML structure
+        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'], // Block risky tags
+        FORBID_ATTR: ['onerror', 'onload', 'onclick'] // Block event handlers
+    });
 
     return (
         <div className="flex-1 flex flex-col bg-gray-900 min-w-0">
@@ -56,13 +64,15 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email }) => {
                             </div>
                         </div>
                         <div className="text-xs text-gray-500 font-medium bg-gray-800 px-2 py-1 rounded">
-                            {email.date}
+                            {new Date(email.date).toLocaleString()}
                         </div>
                     </div>
 
-                    <div className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-sm whitespace-pre-line">
-                        {email.body}
-                    </div>
+                    {/* Render HTML Content Safely */}
+                    <div
+                        className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-sm email-content"
+                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                    />
                 </div>
 
                 {/* AI Sidebar (Placeholder for Phase 4) */}

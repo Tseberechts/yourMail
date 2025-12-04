@@ -12,7 +12,8 @@ export interface Email {
     subject: string;
     from: string;
     date: string;
-    body: string;
+    body: string; // Plain text snippet for the list view
+    htmlBody?: string; // Full HTML content for the viewer
     tags: string[];
     read: boolean;
 }

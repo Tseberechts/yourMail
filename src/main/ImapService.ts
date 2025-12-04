@@ -35,28 +35,37 @@ export class ImapService {
             const lock = await client.getMailboxLock('INBOX');
 
             try {
-                // Fetch envelope (headers) and internal date
-                for await (const message of client.fetch('1:*', { envelope: true, internalDate: true }, { uid: true })) {
+                // We fetch 'source' which is the raw MIME buffer
+                for await (const message of client.fetch('1:*', { envelope: true, source: true, internalDate: true }, { uid: true })) {
                     const envelope = message.envelope;
-
-                    // Use internalDate (server time) or envelope date
                     const dateObj = message.internalDate || envelope.date || new Date();
+
+                    // PARSING LOGIC:
+                    // message.source is a Buffer. We pass it to mailparser.
+                    const parsed = await simpleParser(message.source);
+
+                    // 1. Text Snippet (for Sidebar)
+                    // We take the plain text and slice it for a preview
+                    const plainText = parsed.text || '(No content)';
+                    const snippet = plainText.length > 200 ? plainText.substring(0, 200) + '...' : plainText;
+
+                    // 2. HTML Body (for Viewer)
+                    // Prefer HTML, fall back to textAsHtml, or just plain text
+                    const fullHtml = parsed.html || parsed.textAsHtml || `<pre>${plainText}</pre>`;
 
                     const email: Email = {
                         id: message.uid.toString(),
                         subject: envelope.subject || '(No Subject)',
                         from: envelope.from?.[0]?.name || envelope.from?.[0]?.address || 'Unknown',
-                        // CHANGE: Store as ISO string for reliable sorting
                         date: dateObj.toISOString(),
-                        body: 'Loading content...',
+                        body: snippet,
+                        htmlBody: fullHtml, // Store the full content
                         tags: [],
                         read: false
                     };
 
-                    // Default to newest first (unshift)
                     emails.unshift(email);
-
-                    if (emails.length >= 50) break; // Increased limit slightly
+                    if (emails.length >= 20) break;
                 }
             } finally {
                 lock.release();
