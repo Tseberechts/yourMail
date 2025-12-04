@@ -3,7 +3,7 @@ import path from 'node:path'
 import { SecureStore } from './SecureStore'
 import { AuthService } from './AuthService'
 import { AccountStore } from './AccountStore'
-import { ImapService } from './ImapService'
+import { ImapService } from './imap/ImapService'
 import { SmtpService } from './SmtpService'
 
 process.env.DIST = path.join(__dirname, '../dist')
@@ -87,15 +87,17 @@ app.whenReady().then(() => {
         return { success: false, error: "No window" };
     });
     ipcMain.handle('email:sync', async (_e, accId) => {
-        try { return { success: true, emails: await imapService.fetchEmails(accId) }; }
+        try {
+            // UPDATED: Destructure the result from fetchEmails
+            const result = await imapService.fetchEmails(accId);
+            return { success: true, emails: result.emails, unreadCount: result.unreadCount };
+        }
         catch (e: any) { return { success: false, error: e.message }; }
     });
     ipcMain.handle('email:send', async (_e, data) => {
         try { await smtpService.sendEmail(data.accountId, data.to, data.subject, data.body); return { success: true }; }
         catch (e: any) { return { success: false, error: e.message }; }
     });
-
-    // --- NEW: Delete Handler ---
     ipcMain.handle('email:delete', async (_event, data: { accountId: string, emailId: string }) => {
         try {
             await imapService.deleteEmail(data.accountId, data.emailId);
@@ -105,6 +107,16 @@ app.whenReady().then(() => {
             return { success: false, error: error.message };
         }
     });
+    ipcMain.handle('email:markRead', async (_event, data: { accountId: string, emailId: string }) => {
+        try {
+            await imapService.markAsRead(data.accountId, data.emailId);
+            return { success: true };
+        } catch (error: any) {
+            console.error("Mark read failed", error);
+            return { success: false, error: error.message };
+        }
+    });
+
 
     createWindow()
 })

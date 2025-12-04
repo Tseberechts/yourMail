@@ -26,4 +26,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
         ipcRenderer.invoke('email:send', data),
     deleteEmail: (accountId: string, emailId: string) =>
         ipcRenderer.invoke('email:delete', { accountId, emailId }),
+    markAsRead: (accountId: string, emailId: string) =>
+        ipcRenderer.invoke('email:markRead', { accountId, emailId }),
 })

@@ -14,7 +14,6 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
     const [emails, setEmails] = useState<Email[]>([]);
     const [isLoadingEmails, setIsLoadingEmails] = useState(false);
 
-    // Track IDs of emails currently being deleted to prevent them from reappearing during sync
     const pendingDeletesRef = useRef<Set<string>>(new Set());
 
     // --- 1. Account Management ---
@@ -30,7 +29,6 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
         };
         loadAccounts();
 
-        // Listen for new accounts (Auth Success)
         // @ts-ignore
         const removeListener = window.ipcRenderer.on('auth:success', (_event, newAccount: Account) => {
             setAccounts(prev => {
@@ -56,9 +54,19 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
             // @ts-ignore
             const result = await window.ipcRenderer.syncEmails(selectedAccount);
             if (result.success) {
-                // Filter out pending deletes
                 const validEmails = result.emails.filter((e: Email) => !pendingDeletesRef.current.has(e.id));
                 setEmails(validEmails);
+
+                // UPDATE UNREAD COUNT IN STATE
+                if (typeof result.unreadCount === 'number') {
+                    setAccounts(prevAccounts => prevAccounts.map(acc => {
+                        if (acc.id === selectedAccount) {
+                            return { ...acc, unread: result.unreadCount };
+                        }
+                        return acc;
+                    }));
+                }
+
                 if (onSyncSuccess) onSyncSuccess(validEmails);
             } else {
                 console.error("Failed to sync:", result.error);
@@ -85,27 +93,21 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
     const deleteEmail = async (emailId: string) => {
         if (!selectedAccount) return;
 
-        // A. Add to Ref immediately
         pendingDeletesRef.current.add(emailId);
 
-        // B. Optimistic Update
         const previousEmails = [...emails];
         setEmails(prev => prev.filter(e => e.id !== emailId));
 
-        // C. Call Backend
         try {
             // @ts-ignore
             const result = await window.ipcRenderer.deleteEmail(selectedAccount, emailId);
 
             if (!result.success) {
-                // Revert on failure
                 pendingDeletesRef.current.delete(emailId);
                 setEmails(previousEmails);
                 addToast("Failed to delete email: " + result.error, 'error');
             } else {
                 addToast("Email moved to Trash", 'success');
-
-                // D. Cleanup Ref after 8 seconds (giving server time to sync)
                 setTimeout(() => {
                     pendingDeletesRef.current.delete(emailId);
                 }, 8000);
@@ -118,11 +120,40 @@ export const useMail = ({ selectedAccount, addToast, onAuthSuccess, onSyncSucces
         }
     };
 
+    const markAsRead = async (emailId: string) => {
+        if (!selectedAccount) return;
+
+        // 1. Optimistic Update: Email List
+        setEmails(prev => prev.map(e => {
+            if (e.id === emailId) return { ...e, read: true };
+            return e;
+        }));
+
+        // 2. Optimistic Update: Account Unread Count
+        setAccounts(prev => prev.map(acc => {
+            if (acc.id === selectedAccount) {
+                // Ensure we don't go below 0
+                return { ...acc, unread: Math.max(0, acc.unread - 1) };
+            }
+            return acc;
+        }));
+
+        // 3. Call Backend (Silent, no toast needed)
+        try {
+            // @ts-ignore
+            await window.ipcRenderer.markAsRead(selectedAccount, emailId);
+        } catch (error) {
+            console.error("Failed to mark as read on server", error);
+            // We usually don't revert UI for read-status to avoid jarring jumps
+        }
+    };
+
     return {
         accounts,
         emails,
         isLoadingEmails,
         fetchEmails,
-        deleteEmail
+        deleteEmail,
+        markAsRead,
     };
 };

@@ -11,7 +11,7 @@ interface SidebarProps {
     collapsed: boolean;
     onToggleCollapse: () => void;
     onOpenAddAccount: () => void;
-    onOpenCompose: () => void; // <--- NEW PROP
+    onOpenCompose: () => void;
 }
 
 const FOLDERS = ['Inbox', 'Sent', 'Drafts', 'Trash'];
@@ -25,7 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     collapsed,
                                                     onToggleCollapse,
                                                     onOpenAddAccount,
-                                                    onOpenCompose, // <--- Destructure
+                                                    onOpenCompose,
                                                 }) => {
     return (
         <div className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 bg-gray-800 border-r border-gray-700 transition-all duration-300 flex flex-col`}>
@@ -63,16 +63,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div key={acc.id}>
                             <div
                                 onClick={() => onSelectAccount(acc.id)}
-                                className={`flex items-center space-x-3 p-2 rounded-md cursor-pointer mb-1 transition-colors ${
+                                className={`flex items-center justify-between p-2 rounded-md cursor-pointer mb-1 transition-colors ${
                                     selectedAccountId === acc.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700/50'
                                 }`}
                             >
-                                {acc.type === 'gmail' ? (
-                                    <Mail size={18} className="text-red-400" />
-                                ) : (
-                                    <Shield size={18} className="text-blue-400" />
+                                <div className="flex items-center space-x-3 min-w-0">
+                                    {acc.type === 'gmail' ? (
+                                        <Mail size={18} className="text-red-400 flex-shrink-0" />
+                                    ) : (
+                                        <Shield size={18} className="text-blue-400 flex-shrink-0" />
+                                    )}
+                                    {!collapsed && <span className="text-sm font-medium truncate">{acc.name}</span>}
+                                </div>
+
+                                {/* Account-level Unread Badge */}
+                                {!collapsed && acc.unread > 0 && (
+                                    <span className="bg-sky-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.2rem] text-center">
+                     {acc.unread}
+                   </span>
                                 )}
-                                {!collapsed && <span className="text-sm font-medium truncate">{acc.name}</span>}
                             </div>
 
                             {selectedAccountId === acc.id && !collapsed && (
@@ -102,7 +111,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 })}
             </div>
 
-            {/* Footer Actions */}
             <div className="p-3 border-t border-gray-700">
                 <button
                     onClick={onOpenAddAccount}

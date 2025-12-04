@@ -43,7 +43,8 @@ function App() {
         emails,
         isLoadingEmails,
         fetchEmails,
-        deleteEmail
+        deleteEmail,
+        markAsRead,
     } = useMail({
         selectedAccount,
         addToast,
@@ -57,6 +58,22 @@ function App() {
             setSelectedAccount(accounts[0].id);
         }
     }, [accounts, selectedAccount]);
+
+    useEffect(() => {
+        if (selectedEmail && !selectedEmail.read) {
+            // Add a small delay so if you just click through quickly it doesn't mark everything
+            // Or remove timeout for instant marking.
+            const timer = setTimeout(() => {
+                markAsRead(selectedEmail.id);
+
+                // Also update local selectedEmail state so the UI (like bolding) updates
+                // inside the viewer if we used that prop there
+                setSelectedEmail(prev => prev ? { ...prev, read: true } : null);
+            }, 500);
+
+            return () => clearTimeout(timer);
+        }
+    }, [selectedEmail, markAsRead]);
 
     // Wrapper to handle UI side-effects of deletion (clearing selection)
     const handleDeleteWrapper = async (emailId: string) => {

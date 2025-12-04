@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Email } from '../../shared/types';
-import { Calendar, User, Search, RefreshCw, Trash2 } from 'lucide-react';
+import { Calendar, User, Search, RefreshCw, Trash2, Mail as MailIcon } from 'lucide-react';
 
 interface EmailListProps {
     emails: Email[];
@@ -9,7 +9,7 @@ interface EmailListProps {
     folderName: string;
     onRefresh: () => void;
     isRefreshing: boolean;
-    onDeleteEmail: (emailId: string) => void; // <--- NEW PROP
+    onDeleteEmail: (emailId: string) => void;
 }
 
 type SortField = 'date' | 'from' | 'subject';
@@ -22,7 +22,7 @@ export const EmailList: React.FC<EmailListProps> = ({
                                                         folderName,
                                                         onRefresh,
                                                         isRefreshing,
-                                                        onDeleteEmail, // <--- Destructure
+                                                        onDeleteEmail,
                                                     }) => {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -91,34 +91,47 @@ export const EmailList: React.FC<EmailListProps> = ({
                 {processedEmails.length === 0 ? (
                     <div className="p-8 text-center text-gray-500 text-xs">{isRefreshing ? 'Checking for mail...' : 'No emails found.'}</div>
                 ) : (
-                    processedEmails.map((email) => (
-                        <div
-                            key={email.id}
-                            onClick={() => onSelectEmail(email)}
-                            className={`group relative p-3 mx-2 my-1 rounded-lg cursor-pointer transition-all border border-transparent ${
-                                selectedEmailId === email.id ? 'bg-gray-800 border-gray-700 shadow-sm' : 'hover:bg-gray-800/50'
-                            }`}
-                        >
-                            <div className="flex justify-between items-baseline mb-1">
-                                <span className={`text-sm truncate max-w-[65%] ${selectedEmailId === email.id ? 'text-white font-medium' : 'text-gray-300'}`}>{email.from}</span>
-                                <span className="text-[10px] text-gray-500 uppercase tracking-wide">{formatDate(email.date)}</span>
-                            </div>
-                            <div className="text-sm text-gray-400 truncate font-medium mb-0.5">{email.subject}</div>
-                            <div className="text-xs text-gray-600 truncate">{email.body}</div>
+                    processedEmails.map((email) => {
+                        const isUnread = !email.read;
 
-                            {/* DELETE ICON - Shows on Hover */}
-                            <button
-                                className="absolute right-2 bottom-2 p-1.5 rounded-md bg-gray-800 text-gray-400 hover:text-red-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-gray-700"
-                                onClick={(e) => {
-                                    e.stopPropagation(); // Prevent selecting the email
-                                    onDeleteEmail(email.id);
-                                }}
-                                title="Move to Trash"
+                        return (
+                            <div
+                                key={email.id}
+                                onClick={() => onSelectEmail(email)}
+                                className={`group relative p-3 mx-2 my-1 rounded-lg cursor-pointer transition-all border border-transparent ${
+                                    selectedEmailId === email.id ? 'bg-gray-800 border-gray-700 shadow-sm' : 'hover:bg-gray-800/50'
+                                }`}
                             >
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                    ))
+                                <div className="flex justify-between items-baseline mb-1">
+                  <span className={`text-sm truncate max-w-[65%] ${isUnread ? 'text-white font-bold' : (selectedEmailId === email.id ? 'text-white' : 'text-gray-300')}`}>
+                    {email.from}
+                  </span>
+                                    <span className={`text-[10px] uppercase tracking-wide ${isUnread ? 'text-sky-400 font-bold' : 'text-gray-500'}`}>
+                    {formatDate(email.date)}
+                  </span>
+                                </div>
+                                <div className={`text-sm truncate mb-0.5 ${isUnread ? 'text-gray-100 font-semibold' : 'text-gray-400 font-medium'}`}>
+                                    {email.subject}
+                                </div>
+                                <div className="text-xs text-gray-600 truncate">{email.body}</div>
+
+                                {isUnread && (
+                                    <div className="absolute left-1 top-4 w-1.5 h-1.5 bg-sky-500 rounded-full" title="Unread" />
+                                )}
+
+                                <button
+                                    className="absolute right-2 bottom-2 p-1.5 rounded-md bg-gray-800 text-gray-400 hover:text-red-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-gray-700"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteEmail(email.id);
+                                    }}
+                                    title="Move to Trash"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        );
+                    })
                 )}
             </div>
         </div>
