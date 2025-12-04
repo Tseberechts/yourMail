@@ -80,4 +80,11 @@ export class SecureStore {
             this.store.set('secrets', rest);
         }
     }
+
+    /**
+     * Clears all stored secrets.
+     */
+    clear(): void {
+        this.store.clear();
+    }
 }

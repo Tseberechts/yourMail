@@ -39,47 +39,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Account List */}
             <div className="flex-1 overflow-y-auto p-2 space-y-4">
-                {accounts.map((acc) => (
-                    <div key={acc.id}>
-                        <div
-                            onClick={() => onSelectAccount(acc.id)}
-                            className={`flex items-center space-x-3 p-2 rounded-md cursor-pointer mb-1 transition-colors ${
-                                selectedAccountId === acc.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700/50'
-                            }`}
-                        >
-                            {acc.type === 'gmail' ? (
-                                <Mail size={18} className="text-red-400" />
-                            ) : (
-                                <Shield size={18} className="text-blue-400" />
-                            )}
-                            {!collapsed && <span className="text-sm font-medium truncate">{acc.name}</span>}
-                        </div>
+                {/* Defensive check: ensure accounts exists and map carefully */}
+                {accounts && accounts.map((acc) => {
+                    // Guard against undefined/null accounts in the array
+                    if (!acc || !acc.id) return null;
 
-                        {/* Folders (Only show for selected account) */}
-                        {selectedAccountId === acc.id && !collapsed && (
-                            <div className="ml-4 space-y-0.5 mt-1">
-                                {FOLDERS.map((folder) => (
-                                    <div
-                                        key={folder}
-                                        onClick={() => onSelectFolder(folder.toLowerCase())}
-                                        className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
-                                            selectedFolder === folder.toLowerCase()
-                                                ? 'bg-sky-500/10 text-sky-400 font-medium'
-                                                : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/30'
-                                        }`}
-                                    >
-                                        <span>{folder}</span>
-                                        {folder === 'Inbox' && acc.unread > 0 && (
-                                            <span className="bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded text-[10px] min-w-[1.25rem] text-center">
-                        {acc.unread}
-                      </span>
-                                        )}
-                                    </div>
-                                ))}
+                    return (
+                        <div key={acc.id}>
+                            <div
+                                onClick={() => onSelectAccount(acc.id)}
+                                className={`flex items-center space-x-3 p-2 rounded-md cursor-pointer mb-1 transition-colors ${
+                                    selectedAccountId === acc.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700/50'
+                                }`}
+                            >
+                                {acc.type === 'gmail' ? (
+                                    <Mail size={18} className="text-red-400" />
+                                ) : (
+                                    <Shield size={18} className="text-blue-400" />
+                                )}
+                                {!collapsed && <span className="text-sm font-medium truncate">{acc.name}</span>}
                             </div>
-                        )}
-                    </div>
-                ))}
+
+                            {/* Folders (Only show for selected account) */}
+                            {selectedAccountId === acc.id && !collapsed && (
+                                <div className="ml-4 space-y-0.5 mt-1">
+                                    {FOLDERS.map((folder) => (
+                                        <div
+                                            key={folder}
+                                            onClick={() => onSelectFolder(folder.toLowerCase())}
+                                            className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
+                                                selectedFolder === folder.toLowerCase()
+                                                    ? 'bg-sky-500/10 text-sky-400 font-medium'
+                                                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/30'
+                                            }`}
+                                        >
+                                            <span>{folder}</span>
+                                            {folder === 'Inbox' && acc.unread > 0 && (
+                                                <span className="bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded text-[10px] min-w-[1.25rem] text-center">
+                          {acc.unread}
+                        </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Footer Actions */}

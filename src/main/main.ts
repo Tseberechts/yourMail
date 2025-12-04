@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import path from 'node:path'
 import { SecureStore } from './SecureStore'
 import { AuthService } from './AuthService'
@@ -16,6 +16,71 @@ const authService = new AuthService(secureStore, accountStore);
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
+function createApplicationMenu(window: BrowserWindow) {
+    const isMac = process.platform === 'darwin';
+
+    const template: Electron.MenuItemConstructorOptions[] = [
+        // { role: 'appMenu' } (macOS only)
+        ...(isMac ? [{
+            label: app.name,
+            submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        } as Electron.MenuItemConstructorOptions] : []),
+        // { role: 'fileMenu' }
+        {
+            label: 'File',
+            submenu: [
+                isMac ? { role: 'close' } : { role: 'quit' }
+            ]
+        },
+        // { role: 'viewMenu' }
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        },
+        // --- DEVELOPER MENU ---
+        {
+            label: 'Developer',
+            submenu: [
+                {
+                    label: '⚠️ Nuke All Data (Reset App)',
+                    click: () => {
+                        // 1. Clear Stores
+                        secureStore.clear();
+                        accountStore.clear();
+                        console.log('App data cleared via Developer Menu.');
+
+                        // 2. Reload Window to reflect empty state
+                        window.reload();
+                    }
+                }
+            ]
+        }
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+}
+
 function createWindow() {
     win = new BrowserWindow({
         width: 1200,
@@ -27,6 +92,9 @@ function createWindow() {
             contextIsolation: true,
         },
     })
+
+    // Create Custom Menu
+    createApplicationMenu(win);
 
     win.webContents.on('did-finish-load', () => {
         win?.webContents.send('main-process-message', (new Date).toLocaleString())

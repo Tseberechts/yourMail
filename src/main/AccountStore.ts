@@ -35,4 +35,8 @@ export class AccountStore {
         const filtered = accounts.filter(a => a.id !== id);
         this.store.set('accounts', filtered);
     }
+
+    clear(): void {
+        this.store.clear();
+    }
 }

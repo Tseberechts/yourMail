@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Shield } from 'lucide-react';
+import { X, Mail, Shield, Loader2 } from 'lucide-react';
 import { AccountType } from '../../shared/types';
 
 interface AddAccountModalProps {
@@ -9,12 +9,31 @@ interface AddAccountModalProps {
 
 export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose }) => {
     const [newAccountType, setNewAccountType] = useState<AccountType>('gmail');
+    const [isLoading, setIsLoading] = useState(false);
 
     if (!isOpen) return null;
 
-    const handleConnect = () => {
-        alert(`Connecting to ${newAccountType}... (Logic to be implemented in Phase 2)`);
-        onClose();
+    const handleConnect = async () => {
+        if (newAccountType === 'gmail') {
+            setIsLoading(true);
+            try {
+                // @ts-ignore - Trigger the Main process flow
+                const result = await window.ipcRenderer.startGmailAuth();
+                if (result.success) {
+                    alert("Gmail Connected Successfully!");
+                    onClose();
+                } else {
+                    alert("Failed to connect: " + result.error);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("An error occurred during authentication.");
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            alert("Exchange support coming soon!");
+        }
     };
 
     return (
@@ -28,6 +47,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="p-6">
+                    {/* ... existing code ... */}
                     <div className="flex space-x-4 mb-6">
                         <button
                             onClick={() => setNewAccountType('gmail')}
@@ -66,13 +86,15 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClos
 
                     <button
                         onClick={handleConnect}
-                        className={`w-full py-2.5 rounded-lg font-medium text-white shadow-lg transition-transform active:scale-[0.98] ${
+                        disabled={isLoading}
+                        className={`w-full py-2.5 rounded-lg font-medium text-white shadow-lg transition-transform active:scale-[0.98] flex items-center justify-center ${
                             newAccountType === 'gmail'
                                 ? 'bg-red-600 hover:bg-red-700'
                                 : 'bg-blue-600 hover:bg-blue-700'
-                        }`}
+                        } ${isLoading ? 'opacity-70 cursor-wait' : ''}`}
                     >
-                        Connect {newAccountType === 'gmail' ? 'Gmail' : 'Office 365'}
+                        {isLoading && <Loader2 size={18} className="animate-spin mr-2" />}
+                        {isLoading ? 'Connecting...' : `Connect ${newAccountType === 'gmail' ? 'Gmail' : 'Office 365'}`}
                     </button>
                 </div>
             </div>
