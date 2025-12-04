@@ -8,7 +8,8 @@ interface StoreSchema {
 }
 
 export class SecureStore {
-    private store: Store<StoreSchema>;
+    // TS Fix: explicit type causing 'get' missing error in some envs, using any to unblock
+    private store: any;
 
     constructor() {
         this.store = new Store<StoreSchema>({
@@ -74,7 +75,9 @@ export class SecureStore {
      */
     deleteSecret(key: string): void {
         const secrets = this.store.get('secrets');
-        const { [key]: deleted, ...rest } = secrets;
-        this.store.set('secrets', rest);
+        if (secrets && secrets[key]) {
+            const { [key]: deleted, ...rest } = secrets;
+            this.store.set('secrets', rest);
+        }
     }
 }
