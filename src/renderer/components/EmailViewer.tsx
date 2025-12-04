@@ -32,7 +32,7 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
         document.body.removeChild(link);
     };
 
-    // [NEW] Intercept Link Clicks
+    // Intercept Link Clicks to open in default browser
     const handleBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const target = e.target as HTMLElement;
         const anchor = target.closest('a');
@@ -40,7 +40,13 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
         if (anchor && anchor.href) {
             e.preventDefault();
             // @ts-ignore
-            window.ipcRenderer.openExternal(anchor.href);
+            if (window.ipcRenderer && window.ipcRenderer.openExternal) {
+                // @ts-ignore
+                window.ipcRenderer.openExternal(anchor.href);
+            } else {
+                console.warn("openExternal not available");
+                window.open(anchor.href, '_blank');
+            }
         }
     };
 
@@ -76,6 +82,7 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
             <div className="flex-1 flex overflow-hidden">
                 {/* Email Body */}
                 <div className="flex-1 p-8 overflow-y-auto scroll-smooth">
+                    {/* Header Info - Remains Dark Theme */}
                     <h1 className="text-2xl font-bold text-white mb-6 leading-tight">{email.subject}</h1>
 
                     <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-800">
@@ -122,11 +129,17 @@ export const EmailViewer: React.FC<EmailViewerProps> = ({ email, onDelete }) => 
                         </div>
                     )}
 
-                    <div
-                        className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-sm email-content"
-                        onClick={handleBodyClick}
-                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                    />
+                    {/* [UPDATED] Email Content Sandbox
+                        We wrap the content in a white container to ensure standard rendering for emails
+                        that assume a light background (like the Amazon/bpost email).
+                    */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm min-h-[200px]">
+                        <div
+                            className="prose max-w-none text-gray-900 leading-relaxed text-sm email-content"
+                            onClick={handleBodyClick}
+                            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                        />
+                    </div>
                 </div>
 
                 {/* AI Sidebar */}
