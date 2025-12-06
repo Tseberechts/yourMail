@@ -1,7 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { SecureStore } from '../SecureStore';
 import { simpleParser } from 'mailparser';
-import { Email } from '../../shared/types';
+import { Email, Mailbox } from '../../shared/types';
 import { ImapClientManager } from './ImapClientManager';
 
 export class ImapService {

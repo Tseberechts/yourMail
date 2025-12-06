@@ -43,7 +43,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ isOpen, onClose, fro
             const newFiles = Array.from(e.target.files);
 
             const processedFiles: Attachment[] = await Promise.all(newFiles.map(file => {
-                return new Promise((resolve) => {
+                return new Promise<Attachment>((resolve) => {
                     const reader = new FileReader();
                     reader.onload = () => {
                         const result = reader.result as string;
