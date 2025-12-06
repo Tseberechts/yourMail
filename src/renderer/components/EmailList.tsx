@@ -1,6 +1,6 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Email} from '../../shared/types';
-import {Calendar, RefreshCw, Search, Trash2, User, Paperclip} from 'lucide-react';
+import {Calendar, Loader2, Paperclip, RefreshCw, Search, Trash2, User} from 'lucide-react';
 
 interface EmailListProps {
     emails: Email[];
@@ -10,6 +10,8 @@ interface EmailListProps {
     onRefresh: () => void;
     isRefreshing: boolean;
     onDeleteEmail: (emailId: string) => void;
+    // [NEW]
+    onSearch?: (query: string) => void;
 }
 
 type SortField = 'date' | 'from' | 'subject';
@@ -23,10 +25,21 @@ export const EmailList: React.FC<EmailListProps> = ({
                                                         onRefresh,
                                                         isRefreshing,
                                                         onDeleteEmail,
+                                                        onSearch
                                                     }) => {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Debounce search input
+    useEffect(() => {
+        if (!onSearch) return;
+        const delayDebounceFn = setTimeout(() => {
+            onSearch(searchQuery);
+        }, 600); // Wait 600ms after typing stops
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, onSearch]);
 
     const formatDate = (isoString: string) => {
         try {
@@ -43,10 +56,8 @@ export const EmailList: React.FC<EmailListProps> = ({
 
     const processedEmails = useMemo(() => {
         let result = [...emails];
-        if (searchQuery) {
-            const lowerQuery = searchQuery.toLowerCase();
-            result = result.filter(e => e.subject.toLowerCase().includes(lowerQuery) || e.from.toLowerCase().includes(lowerQuery));
-        }
+
+        // Sorting
         result.sort((a, b) => {
             let valA = '';
             let valB = '';
@@ -69,7 +80,7 @@ export const EmailList: React.FC<EmailListProps> = ({
             return 0;
         });
         return result;
-    }, [emails, sortField, sortDirection, searchQuery]);
+    }, [emails, sortField, sortDirection]);
 
     const toggleSort = (field: SortField) => {
         if (sortField === field) setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -109,7 +120,7 @@ export const EmailList: React.FC<EmailListProps> = ({
                         <Search size={14} className="absolute left-2.5 top-2 text-gray-500"/>
                         <input
                             type="text"
-                            placeholder="Filter emails..."
+                            placeholder="Search emails (server side)..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-gray-800 text-gray-200 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:border-sky-600 focus:outline-none transition-colors"
@@ -120,7 +131,14 @@ export const EmailList: React.FC<EmailListProps> = ({
 
             <div className="flex-1 overflow-y-auto">
                 {processedEmails.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 text-xs">{isRefreshing ? 'Checking for mail...' : 'No emails found.'}</div>
+                    <div className="p-8 text-center text-gray-500 text-xs">
+                        {isRefreshing ? (
+                            <div className="flex flex-col items-center">
+                                <Loader2 size={24} className="animate-spin mb-2"/>
+                                <span>Loading...</span>
+                            </div>
+                        ) : 'No emails found.'}
+                    </div>
                 ) : (
                     processedEmails.map((email) => {
                         const isUnread = !email.read;
@@ -134,16 +152,16 @@ export const EmailList: React.FC<EmailListProps> = ({
                                 }`}
                             >
                                 <div className="flex justify-between items-baseline mb-1">
-                  <span className={`text-sm truncate max-w-[65%] ${isUnread ? 'text-white font-bold' : (selectedEmailId === email.id ? 'text-white' : 'text-gray-300')}`}>
-                    {email.from}
-                  </span>
+                                  <span className={`text-sm truncate max-w-[65%] ${isUnread ? 'text-white font-bold' : (selectedEmailId === email.id ? 'text-white' : 'text-gray-300')}`}>
+                                    {email.from}
+                                  </span>
                                     <div className="flex items-center space-x-2">
                                         {email.attachments && email.attachments.length > 0 && (
                                             <Paperclip size={12} className="text-gray-500"/>
                                         )}
-                                        <span className={`text-[10px] uppercase ...`}>
-            {formatDate(email.date)}
-        </span>
+                                        <span className={`text-[10px] uppercase text-gray-500`}>
+                                            {formatDate(email.date)}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className={`text-sm truncate mb-0.5 ${isUnread ? 'text-gray-100 font-semibold' : 'text-gray-400 font-medium'}`}>

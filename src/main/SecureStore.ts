@@ -1,78 +1,100 @@
-import { safeStorage } from "electron";
-import Store from "electron-store";
+import {app, safeStorage} from 'electron';
+import path from 'path';
+import fs from 'fs';
 
-// The store schema is a record of encrypted hex strings.
-// The key is the secret's identifier (e.g., 'gemini-api-key').
-type StoreSchema = Record<string, string>;
+// Define the shape of our secrets object
+type SecretsMap = Record<string, string>;
+
+interface StoreSchema {
+    secrets: SecretsMap;
+}
 
 export class SecureStore {
-  private store: Store<StoreSchema>;
+    private filePath: string;
+    private data: StoreSchema;
 
-  constructor() {
-    this.store = new Store<StoreSchema>({
-      name: "secure-config",
-      // It's good practice to provide defaults, even if empty.
-      defaults: {},
-    });
-  }
-
-  /**
-   * Encrypts and saves a secret key.
-   * @param key The identifier for the secret (e.g., 'gemini-api-key')
-   * @param value The actual secret string
-   * @returns boolean - success status
-   */
-  setSecret(key: string, value: string): boolean {
-    if (!safeStorage.isEncryptionAvailable()) {
-      console.error("Encryption is not available on this OS/User session.");
-      return false;
+    constructor() {
+        this.filePath = path.join(app.getPath('userData'), 'secure-config.json');
+        this.data = this.load();
     }
 
-    try {
-      const encryptedBuffer = safeStorage.encryptString(value);
-      const encryptedHex = encryptedBuffer.toString("hex");
-      this.store.set(key, encryptedHex);
-      return true;
-    } catch (error) {
-      console.error(`Failed to save secret for ${key}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Retrieves and decrypts a secret key.
-   * @param key The identifier for the secret
-   * @returns string | null - The decrypted secret or null if not found
-   */
-  getSecret(key: string): string | null {
-    if (!safeStorage.isEncryptionAvailable()) {
-      return null;
+    private load(): StoreSchema {
+        try {
+            if (!fs.existsSync(this.filePath)) {
+                return { secrets: {} };
+            }
+            const raw = fs.readFileSync(this.filePath, 'utf-8');
+            return JSON.parse(raw);
+        } catch (error) {
+            console.error('Failed to load secure store:', error);
+            return { secrets: {} };
+        }
     }
 
-    try {
-      const encryptedHex = this.store.get(key);
-
-      if (!encryptedHex) return null;
-
-      const encryptedBuffer = Buffer.from(encryptedHex, "hex");
-      return safeStorage.decryptString(encryptedBuffer);
-    } catch (error) {
-      console.error(`Failed to retrieve secret for ${key}:`, error);
-      return null;
+    private save(): void {
+        try {
+            fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
+        } catch (error) {
+            console.error('Failed to save secure store:', error);
+        }
     }
-  }
 
-  /**
-   * Deletes a secret.
-   */
-  deleteSecret(key: string): void {
-    this.store.delete(key as keyof StoreSchema);
-  }
+    /**
+     * Encrypts and saves a secret key.
+     */
+    setSecret(key: string, value: string): boolean {
+        if (!safeStorage.isEncryptionAvailable()) {
+            console.error('Encryption is not available on this OS/User session.');
+            return false;
+        }
 
-  /**
-   * Clears all stored secrets.
-   */
-  clear(): void {
-    this.store.clear();
-  }
+        try {
+            const encryptedBuffer = safeStorage.encryptString(value);
+            this.data.secrets[key] = encryptedBuffer.toString('hex');
+            this.save();
+
+            return true;
+        } catch (error) {
+            console.error(`Failed to save secret for ${key}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves and decrypts a secret key.
+     */
+    getSecret(key: string): string | null {
+        if (!safeStorage.isEncryptionAvailable()) {
+            return null;
+        }
+
+        try {
+            const encryptedHex = this.data.secrets[key];
+            if (!encryptedHex) return null;
+
+            const encryptedBuffer = Buffer.from(encryptedHex, 'hex');
+            return safeStorage.decryptString(encryptedBuffer);
+        } catch (error) {
+            console.error(`Failed to retrieve secret for ${key}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Deletes a secret.
+     */
+    deleteSecret(key: string): void {
+        if (this.data.secrets[key]) {
+            delete this.data.secrets[key];
+            this.save();
+        }
+    }
+
+    /**
+     * Clears all stored secrets.
+     */
+    clear(): void {
+        this.data = { secrets: {} };
+        this.save();
+    }
 }

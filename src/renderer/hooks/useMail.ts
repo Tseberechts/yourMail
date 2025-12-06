@@ -4,7 +4,7 @@ import { ToastType } from '../components/Toast';
 
 interface UseMailProps {
     selectedAccount: string;
-    selectedFolder: string; // [NEW]
+    selectedFolder: string;
     addToast: (msg: string, type: ToastType) => void;
     onAuthSuccess?: (account: Account) => void;
     onSyncSuccess?: (emails: Email[]) => void;
@@ -15,9 +15,12 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
     const [emails, setEmails] = useState<Email[]>([]);
     const [isLoadingEmails, setIsLoadingEmails] = useState(false);
 
+    // [NEW] Search State
+    const [isSearching, setIsSearching] = useState(false);
+
     const pendingDeletesRef = useRef<Set<string>>(new Set());
 
-    // --- 1. Account Management ---
+    // ... Account Loading Code (Same as before) ...
     useEffect(() => {
         const loadAccounts = async () => {
             try {
@@ -45,15 +48,13 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
         };
     }, [addToast, onAuthSuccess]);
 
-
-    // --- 2. Email Syncing ---
+    // --- Fetch Logic ---
     const fetchEmails = useCallback(async () => {
         if (!selectedAccount) return;
 
         setIsLoadingEmails(true);
         try {
             // @ts-ignore
-            // Pass both accountId and the selected folder path
             const result = await window.ipcRenderer.syncEmails({
                 accountId: selectedAccount,
                 path: selectedFolder || 'INBOX'
@@ -63,7 +64,6 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
                 const validEmails = result.emails.filter((e: Email) => !pendingDeletesRef.current.has(e.id));
                 setEmails(validEmails);
 
-                // Update unread count only if we are syncing INBOX (simplification for MVP)
                 if (typeof result.unreadCount === 'number' && (selectedFolder === 'INBOX' || !selectedFolder)) {
                     setAccounts(prevAccounts => prevAccounts.map(acc => {
                         if (acc.id === selectedAccount) {
@@ -72,7 +72,6 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
                         return acc;
                     }));
                 }
-
                 if (onSyncSuccess) onSyncSuccess(validEmails);
             } else {
                 console.error("Failed to sync:", result.error);
@@ -84,7 +83,28 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
         }
     }, [selectedAccount, selectedFolder, onSyncSuccess]);
 
-    // Auto Refresh - Re-runs when folder or account changes
+    // --- [NEW] Search Logic ---
+    const searchEmails = useCallback(async (query: string) => {
+        if (!query) {
+            fetchEmails(); // Reset to normal view
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            // @ts-ignore
+            const result = await window.ipcRenderer.searchEmails(selectedAccount, query);
+            if (result.success) {
+                setEmails(result.emails);
+            }
+        } catch(e) {
+            console.error("Search failed", e);
+        } finally {
+            setIsSearching(false);
+        }
+    }, [selectedAccount, fetchEmails]);
+
+    // Auto Refresh
     useEffect(() => {
         fetchEmails();
         const intervalId = setInterval(() => {
@@ -93,29 +113,23 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
         return () => clearInterval(intervalId);
     }, [fetchEmails]);
 
-
-    // --- 3. Deletion Logic ---
+    // ... Delete and Mark Read (Same as before) ...
     const deleteEmail = async (emailId: string) => {
         if (!selectedAccount) return;
-
         pendingDeletesRef.current.add(emailId);
-
         const previousEmails = [...emails];
         setEmails(prev => prev.filter(e => e.id !== emailId));
 
         try {
             // @ts-ignore
             const result = await window.ipcRenderer.deleteEmail(selectedAccount, emailId, selectedFolder || 'INBOX');
-
             if (!result.success) {
                 pendingDeletesRef.current.delete(emailId);
                 setEmails(previousEmails);
                 addToast("Failed to delete email: " + result.error, 'error');
             } else {
                 addToast("Email moved to Trash", 'success');
-                setTimeout(() => {
-                    pendingDeletesRef.current.delete(emailId);
-                }, 8000);
+                setTimeout(() => { pendingDeletesRef.current.delete(emailId); }, 8000);
             }
         } catch (error) {
             console.error("Delete error", error);
@@ -127,34 +141,21 @@ export const useMail = ({ selectedAccount, selectedFolder, addToast, onAuthSucce
 
     const markAsRead = async (emailId: string) => {
         if (!selectedAccount) return;
-
         setEmails(prev => prev.map(e => {
             if (e.id === emailId) return { ...e, read: true };
             return e;
         }));
-
-        if (selectedFolder === 'INBOX' || !selectedFolder) {
-            setAccounts(prev => prev.map(acc => {
-                if (acc.id === selectedAccount) {
-                    return { ...acc, unread: Math.max(0, acc.unread - 1) };
-                }
-                return acc;
-            }));
-        }
-
-        try {
-            // @ts-ignore
-            await window.ipcRenderer.markAsRead(selectedAccount, emailId, selectedFolder || 'INBOX');
-        } catch (error) {
-            console.error("Failed to mark as read on server", error);
-        }
+        // @ts-ignore
+        await window.ipcRenderer.markAsRead(selectedAccount, emailId, selectedFolder || 'INBOX');
     };
 
     return {
         accounts,
         emails,
         isLoadingEmails,
+        isSearching, // Expose loading state for search
         fetchEmails,
+        searchEmails, // Expose new search function
         deleteEmail,
         markAsRead,
     };

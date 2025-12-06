@@ -45,6 +45,8 @@ function App() {
         fetchEmails,
         deleteEmail,
         markAsRead,
+        isSearching,
+        searchEmails,
     } = useMail({
         selectedAccount,
         selectedFolder,
@@ -159,8 +161,9 @@ function App() {
                             fetchEmails();
                             addToast("Refreshing...", 'info');
                         }}
-                        isRefreshing={isLoadingEmails}
+                        isRefreshing={isLoadingEmails || isSearching}
                         onDeleteEmail={handleDeleteWrapper}
+                        onSearch={searchEmails}
                     />
                 )}
                 <EmailViewer

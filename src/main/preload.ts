@@ -23,11 +23,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     startGmailAuth: () => ipcRenderer.invoke('auth:start-gmail'),
     getAccounts: () => ipcRenderer.invoke('account:list'),
 
-    // [NEW] Update Signature
     updateSignature: (accountId: string, signature: string) =>
         ipcRenderer.invoke('account:updateSignature', { accountId, signature }),
 
     syncEmails: (arg: string | { accountId: string, path: string }) => ipcRenderer.invoke('email:sync', arg),
+    searchEmails: (accountId: string, query: string) => ipcRenderer.invoke('email:search', { accountId, query }),
     getMailboxes: (accountId: string) => ipcRenderer.invoke('email:getMailboxes', accountId),
     sendEmail: (data: SendEmailPayload) => ipcRenderer.invoke('email:send', data),
 
