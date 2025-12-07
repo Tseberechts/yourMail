@@ -13,13 +13,12 @@ export default defineConfig({
       main: {
         // Shortcut of `build.lib.entry`.
         entry: 'src/main/main.ts',
-        // [NEW] configuration to handle native modules
+        // [UPDATED] configuration to handle native modules
         vite: {
           build: {
             rollupOptions: {
-              // Here we tell Vite/Rollup to treat better-sqlite3 as external
-              // This prevents the "Could not dynamically require" error
-              external: ['better-sqlite3']
+              // We must externalize these native modules to prevent build errors
+              external: ['better-sqlite3', 'bufferutil', 'utf-8-validate']
             }
           }
         }

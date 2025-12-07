@@ -9,6 +9,7 @@
     "tsc": "tsc"
   },
   "dependencies": {
+    "@google/genai": "^1.31.0",
     "better-sqlite3": "^12.5.0",
     "dompurify": "^3.3.0",
     "dotenv": "^17.2.3",
@@ -21,13 +22,11 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
-    "prettier": "^3.7.4",
-    "tailwindcss": "^4.1.17",
-    "@tailwindcss/vite": "^4.1.17",
-    "@types/better-sqlite3": "^7.6.13",
     "@eslint/css": "^0.14.1",
     "@eslint/js": "^9.39.1",
     "@eslint/json": "^0.14.0",
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/dompurify": "^3.0.5",
     "@types/mailparser": "^3.4.6",
     "@types/nodemailer": "^7.0.4",
@@ -39,6 +38,8 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.5.0",
+    "prettier": "^3.7.4",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
     "vite": "^7.2.6",
