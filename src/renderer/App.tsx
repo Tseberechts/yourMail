@@ -5,7 +5,6 @@ import { EmailList } from "./components/EmailList";
 import { EmailViewer } from "./components/EmailViewer";
 import { AddAccountModal } from "./components/AddAccountModal";
 import { ComposeModal } from "./components/ComposeModal";
-// [UPDATED] Imported new separate modals
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { GlobalSettingsModal } from "./components/GlobalSettingsModal";
 import { ToastContainer } from "./components/Toast";
@@ -19,18 +18,20 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-
-  // [UPDATED] Separated settings state
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
 
   const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
 
+  // [UPDATED] Lifted AI Model State
+  const [aiModel, setAiModel] = useState(
+    () => localStorage.getItem("ym_ai_model") || "gemini-2.5-flash",
+  );
+
   const [selectedFolder, setSelectedFolder] = useState("INBOX");
   const [selectedAccount, setSelectedAccount] = useState<string>("");
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
-  // --- Hooks ---
   const { toasts, addToast, removeToast } = useToast();
 
   const handleAuthSuccess = useCallback((newAccount: Account) => {
@@ -86,37 +87,48 @@ function App() {
 
   const currentAccountObj = accounts.find(a => a.id === selectedAccount);
 
-  // [UPDATED] Handle opening ACCOUNT settings
   const handleOpenAccountSettings = (account: Account) => {
     setAccountToEdit(account);
     setIsAccountSettingsOpen(true);
   };
 
-  // [UPDATED] Handle opening GLOBAL settings
   const handleOpenGlobalSettings = () => {
     setIsGlobalSettingsOpen(true);
   };
 
   const handleSaveAccountSettings = async (
     accountId: string,
-    signature: string,
+    data: { signature: string; name: string },
   ) => {
     try {
       // @ts-ignore
       const result = await window.ipcRenderer.updateSignature(
         accountId,
-        signature,
+        data.signature,
       );
       if (result.success) {
-        addToast("Signature updated!", "success");
+        addToast("Settings updated!", "success");
         window.location.reload();
       } else {
-        addToast("Failed to update signature", "error");
+        addToast("Failed to update settings", "error");
       }
     } catch (e) {
       console.error(e);
       addToast("Error saving settings", "error");
     }
+  };
+
+  const handleRemoveAccount = (accountId: string) => {
+    if (confirm("Are you sure you want to remove this account?")) {
+      addToast("Account removal coming in next update", "info");
+      setIsAccountSettingsOpen(false);
+    }
+  };
+
+  // [UPDATED] Handler for global settings updates
+  const handleSaveGlobalSettings = (newModel: string) => {
+    setAiModel(newModel);
+    // Persist is handled inside the modal, but updating state here triggers re-render
   };
 
   return (
@@ -137,18 +149,21 @@ function App() {
         signature={currentAccountObj?.signature}
       />
 
-      {/* [UPDATED] Render separate modals */}
       <AccountSettingsModal
         isOpen={isAccountSettingsOpen}
         onClose={() => setIsAccountSettingsOpen(false)}
         account={accountToEdit}
         onSave={handleSaveAccountSettings}
+        onRemove={handleRemoveAccount}
       />
 
+      {/* [UPDATED] Pass model state and setter */}
       <GlobalSettingsModal
         isOpen={isGlobalSettingsOpen}
         onClose={() => setIsGlobalSettingsOpen(false)}
         onShowToast={addToast}
+        currentAiModel={aiModel}
+        onUpdateAiModel={handleSaveGlobalSettings}
       />
 
       <Sidebar
@@ -185,7 +200,12 @@ function App() {
             onSearch={searchEmails}
           />
         )}
-        <EmailViewer email={selectedEmail} onDelete={handleDeleteWrapper} />
+        {/* [UPDATED] Pass aiModel down to viewer */}
+        <EmailViewer
+          email={selectedEmail}
+          onDelete={handleDeleteWrapper}
+          aiModel={aiModel}
+        />
       </div>
     </div>
   );

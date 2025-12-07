@@ -9,7 +9,7 @@ import { SendEmailPayload } from "../shared/types";
 import { AppDatabase } from "./db/Database";
 import { EmailRepository } from "./db/EmailRepository";
 import { SyncService } from "./imap/SyncService";
-import { AiService } from "./AiService"; // [NEW]
+import { AiService } from "./AiService";
 
 process.env.DIST = path.join(__dirname, "../dist");
 process.env.VITE_PUBLIC = app.isPackaged
@@ -31,14 +31,36 @@ const emailRepo = new EmailRepository(db);
 const syncService = new SyncService(imapService, emailRepo);
 
 // --- Phase 4: AI ---
-const aiService = new AiService(secureStore); // [NEW]
+const aiService = new AiService(secureStore);
 
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 
 function createApplicationMenu(window: BrowserWindow) {
   const isMac = process.platform === "darwin";
+
   const template: Electron.MenuItemConstructorOptions[] = [
-    { role: isMac ? "appMenu" : "fileMenu" } as any,
+    ...((isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []) as Electron.MenuItemConstructorOptions[]),
+    {
+      label: "File",
+      submenu: [isMac ? { role: "close" } : { role: "quit" }],
+    },
     {
       label: "Edit",
       submenu: [
@@ -48,11 +70,48 @@ function createApplicationMenu(window: BrowserWindow) {
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
+        ...(isMac
+          ? [
+              { role: "pasteAndMatchStyle" },
+              { role: "delete" },
+              { role: "selectAll" },
+              { type: "separator" },
+              {
+                label: "Speech",
+                submenu: [{ role: "startSpeaking" }, { role: "stopSpeaking" }],
+              },
+            ]
+          : [{ role: "delete" }, { type: "separator" }, { role: "selectAll" }]),
       ],
     },
     {
       label: "View",
-      submenu: [{ role: "reload" }, { role: "toggleDevTools" }],
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        ...(isMac
+          ? [
+              { type: "separator" },
+              { role: "front" },
+              { type: "separator" },
+              { role: "window" },
+            ]
+          : [{ role: "close" }]),
+      ],
     },
     {
       label: "Developer",
@@ -68,6 +127,7 @@ function createApplicationMenu(window: BrowserWindow) {
       ],
     },
   ];
+
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }
@@ -148,20 +208,14 @@ app.whenReady().then(() => {
     }
   });
 
-  // [UPDATED] Use SyncService
   ipcMain.handle(
     "email:sync",
     async (_e, data: { accountId: string; path: string }) => {
       try {
         const accId = typeof data === "string" ? data : data.accountId;
         const path = typeof data === "string" ? "INBOX" : data.path || "INBOX";
-
-        // This now fetches from Cloud -> DB, then returns DB -> UI
         const emails = await syncService.syncAndFetch(accId, path);
-
-        // Unread count currently not in DB query, simplistic fallback for MVP
         const unreadCount = emails.filter(e => !e.read).length;
-
         return { success: true, emails, unreadCount };
       } catch (e: any) {
         return { success: false, error: e.message };
@@ -184,7 +238,6 @@ app.whenReady().then(() => {
     }
   });
 
-  // [UPDATED] Use SyncService
   ipcMain.handle(
     "email:delete",
     async (
@@ -205,7 +258,6 @@ app.whenReady().then(() => {
     },
   );
 
-  // [UPDATED] Use SyncService
   ipcMain.handle(
     "email:markRead",
     async (
@@ -239,7 +291,7 @@ app.whenReady().then(() => {
     },
   );
 
-  // --- AI Handlers [NEW] ---
+  // --- AI Handlers [UPDATED] ---
   ipcMain.handle("ai:hasKey", async () => await aiService.hasKey());
 
   ipcMain.handle("ai:saveKey", async (_e, key: string) => {
@@ -251,22 +303,28 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle("ai:summarize", async (_e, body: string) => {
-    try {
-      const summary = await aiService.summarizeEmail(body);
-      return { success: true, text: summary };
-    } catch (e: any) {
-      return { success: false, error: e.message };
-    }
-  });
+  // [UPDATED] Receive modelName arg
+  ipcMain.handle(
+    "ai:summarize",
+    async (_e, data: { body: string; model: string }) => {
+      try {
+        const summary = await aiService.summarizeEmail(data.body, data.model);
+        return { success: true, text: summary };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
 
+  // [UPDATED] Receive modelName arg
   ipcMain.handle(
     "ai:draft",
-    async (_e, data: { body: string; instruction: string }) => {
+    async (_e, data: { body: string; instruction: string; model: string }) => {
       try {
         const draft = await aiService.generateReply(
           data.body,
           data.instruction,
+          data.model,
         );
         return { success: true, text: draft };
       } catch (e: any) {

@@ -6,45 +6,48 @@ interface GlobalSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onShowToast: (msg: string, type: ToastType) => void;
+  currentAiModel: string;
+  onUpdateAiModel: (model: string) => void;
 }
 
 export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   isOpen,
   onClose,
   onShowToast,
+  currentAiModel,
+  onUpdateAiModel,
 }) => {
   const [apiKey, setApiKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [hasKey, setHasKey] = useState(false);
 
-  // UI State for non-persisted settings
+  // UI State
   const [theme, setTheme] = useState("dark");
-  const [aiModel, setAiModel] = useState("gemini-1.5-flash");
+  const [aiModel, setAiModel] = useState(currentAiModel);
   const [autoStart, setAutoStart] = useState(false);
 
-  // Initial Load Logic
   useEffect(() => {
     if (!isOpen) return;
 
-    // Check API key status whenever modal opens
     // @ts-ignore
     window.ipcRenderer.aiHasKey().then(setHasKey);
 
-    // Load other settings from localStorage if available
     setTheme(localStorage.getItem("ym_theme") || "dark");
-    setAiModel(localStorage.getItem("ym_ai_model") || "gemini-1.5-flash");
-  }, [isOpen]);
+    // Sync local state with prop when opening
+    setAiModel(currentAiModel);
+  }, [isOpen, currentAiModel]);
 
   if (!isOpen) return null;
 
   const handleSave = async () => {
     setIsSaving(true);
 
-    // Save UI prefs locally
     localStorage.setItem("ym_theme", theme);
     localStorage.setItem("ym_ai_model", aiModel);
 
-    // Save API Key if changed
+    // Notify parent to update app state immediately
+    onUpdateAiModel(aiModel);
+
     if (apiKey) {
       // @ts-ignore
       const result = await window.ipcRenderer.aiSaveKey(apiKey);
@@ -61,12 +64,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
 
     setIsSaving(false);
+    onClose();
   };
 
   return (
     <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-gray-800 border border-gray-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-850">
           <h3 className="font-semibold text-white">Global Settings</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -74,7 +77,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Appearance */}
           <div className="space-y-3">
@@ -113,11 +115,32 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 onChange={e => setAiModel(e.target.value)}
                 className="w-full bg-gray-900 border border-gray-700 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-sky-500"
               >
-                <option value="gemini-2.5-flash">
-                  Gemini 2.5 Flash (Fast)
-                </option>
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Smarter)</option>
+                <optgroup label="Latest & Greatest">
+                  <option value="gemini-3-pro-preview">
+                    Gemini 3.0 Pro (Preview) - Best
+                  </option>
+                  <option value="gemini-2.5-pro">
+                    Gemini 2.5 Pro - Reasoning
+                  </option>
+                  <option value="gemini-2.5-flash">
+                    Gemini 2.5 Flash - Balanced
+                  </option>
+                </optgroup>
+                <optgroup label="Efficient">
+                  <option value="gemini-2.5-flash-lite">
+                    Gemini 2.5 Flash-Lite - Fastest
+                  </option>
+                </optgroup>
+                <optgroup label="Previews">
+                  <option value="gemini-2.5-flash-preview-09-2025">
+                    Gemini 2.5 Flash (Preview)
+                  </option>
+                </optgroup>
               </select>
+              <p className="text-[10px] text-gray-500 pt-1">
+                Note: Preview models may have rate limits. Flash-Lite is best
+                for quick tasks.
+              </p>
             </div>
 
             <div className="bg-sky-900/10 border border-sky-700/30 p-3 rounded-lg">
@@ -172,7 +195,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t border-gray-700 bg-gray-850 flex justify-end">
           <button
             onClick={handleSave}
