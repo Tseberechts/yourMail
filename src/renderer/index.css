@@ -1,1 +1,45 @@
 @import "tailwindcss";
+
+/* Tiptap / ProseMirror Styles */
+.ProseMirror {
+  @apply outline-none min-h-[150px] text-sm text-gray-200;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-gray-500 float-left h-0 pointer-events-none;
+}
+
+.ProseMirror ul {
+  @apply list-disc list-outside ml-4 mb-2;
+}
+
+.ProseMirror ol {
+  @apply list-decimal list-outside ml-4 mb-2;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-2 border-gray-600 pl-3 my-2 italic text-gray-400;
+}
+
+.ProseMirror a {
+  @apply text-sky-400 underline cursor-pointer hover:text-sky-300;
+}
+
+/* Custom Scrollbar for WebKit */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700 rounded-full border-2 border-gray-900;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}
