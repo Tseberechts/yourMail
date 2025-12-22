@@ -1,45 +1,48 @@
+/* 1. The Single Import
+  In Tailwind v4, the three directives (@tailwind base, components, utilities)
+  are replaced by this single line.
+*/
 @import "tailwindcss";
 
-/* Tiptap / ProseMirror Styles */
-.ProseMirror {
-  @apply outline-none min-h-[150px] text-sm text-gray-200;
+/* 2. CSS-First Configuration
+  Instead of a tailwind.config.js, you can now configure your theme directly
+  here using the @theme block.
+*/
+@theme {
+  /* Define custom variables or override defaults */
+  --font-display: "Satoshi", "sans-serif";
+  --color-brand: oklch(0.65 0.24 190); /* v4 uses modern color spaces well */
+  --breakpoint-3xl: 120rem;
+
+  /* You can create custom animations here too */
+  --animate-float: float 3s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
 }
 
-.ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  @apply text-gray-500 float-left h-0 pointer-events-none;
+/* 3. Native CSS Variables
+  You can use standard CSS variables for values you want accessible
+  both in Tailwind utilities and custom CSS.
+*/
+:root {
+  --header-height: 4rem;
 }
 
-.ProseMirror ul {
-  @apply list-disc list-outside ml-4 mb-2;
+/* 4. Custom CSS
+  The @apply directive still works for extracting classes.
+*/
+.btn-primary {
+  @apply bg-[--color-brand] text-white px-6 py-2 rounded-full font-bold hover:opacity-90 transition;
 }
 
-.ProseMirror ol {
-  @apply list-decimal list-outside ml-4 mb-2;
-}
-
-.ProseMirror blockquote {
-  @apply border-l-2 border-gray-600 pl-3 my-2 italic text-gray-400;
-}
-
-.ProseMirror a {
-  @apply text-sky-400 underline cursor-pointer hover:text-sky-300;
-}
-
-/* Custom Scrollbar for WebKit */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full border-2 border-gray-900;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
+/* 5. Layering
+  The @layer directive is still used to control cascade order.
+*/
+@layer utilities {
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  }
 }
