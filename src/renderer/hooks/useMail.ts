@@ -20,6 +20,7 @@ export const useMail = ({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [emails, setEmails] = useState<Email[]>([]);
   const [isLoadingEmails, setIsLoadingEmails] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // [NEW] Search State
   const [isSearching, setIsSearching] = useState(false);
@@ -93,6 +94,8 @@ export const useMail = ({
       if (currentEmails.length === 0) setIsLoadingEmails(true);
       return currentEmails;
     });
+    
+    setIsSyncing(true);
 
     try {
       // @ts-ignore
@@ -125,6 +128,7 @@ export const useMail = ({
       console.error("Sync error:", e);
     } finally {
       setIsLoadingEmails(false);
+      setIsSyncing(false);
     }
   }, [selectedAccount, selectedFolder, onSyncSuccess]);
 
@@ -216,6 +220,7 @@ export const useMail = ({
     accounts,
     emails,
     isLoadingEmails,
+    isSyncing,
     isSearching,
     fetchEmails,
     searchEmails,

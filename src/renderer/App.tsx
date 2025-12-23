@@ -49,6 +49,7 @@ function App() {
     accounts,
     emails,
     isLoadingEmails,
+    isSyncing,
     fetchEmails,
     deleteEmail,
     markAsRead,
@@ -195,7 +196,7 @@ function App() {
               fetchEmails();
               addToast("Refreshing...", "info");
             }}
-            isRefreshing={isLoadingEmails || isSearching}
+            isRefreshing={isLoadingEmails || isSearching || isSyncing}
             onDeleteEmail={handleDeleteWrapper}
             onSearch={searchEmails}
           />
