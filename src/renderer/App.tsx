@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { Account, Email } from "../shared/types";
 import { Sidebar } from "./components/Sidebar";
-import { EmailList } from "./components/EmailList";
+import { EmailList, SortOption, FilterState } from "./components/EmailList";
 import { EmailViewer } from "./components/EmailViewer";
 import { AddAccountModal } from "./components/AddAccountModal";
 import { ComposeModal } from "./components/ComposeModal";
@@ -27,6 +27,13 @@ function App() {
   const [aiModel, setAiModel] = useState(
     () => localStorage.getItem("ym_ai_model") || "gemini-2.5-flash",
   );
+
+  // [NEW] Lifted state for sorting and filtering
+  const [sortOption, setSortOption] = useState<SortOption>("date-desc");
+  const [filters, setFilters] = useState<FilterState>({
+    unread: false,
+    hasAttachments: false,
+  });
 
   const [selectedFolder, setSelectedFolder] = useState("INBOX");
   const [selectedAccount, setSelectedAccount] = useState<string>("");
@@ -63,6 +70,41 @@ function App() {
     onSyncSuccess: handleSyncSuccess,
   });
 
+  // [NEW] Computed emails
+  const filteredAndSortedEmails = useMemo(() => {
+    let result = [...emails];
+
+    // Apply Filters
+    if (filters.unread) {
+      result = result.filter(email => !email.read);
+    }
+    if (filters.hasAttachments) {
+      result = result.filter(email => email.attachments && email.attachments.length > 0);
+    }
+
+    // Apply Sort
+    switch (sortOption) {
+      case "date-desc":
+        return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      case "date-asc":
+        return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      case "sender-asc":
+        return result.sort((a, b) => a.from.localeCompare(b.from));
+      case "sender-desc":
+        return result.sort((a, b) => b.from.localeCompare(a.from));
+      case "unread":
+        return result.sort((a, b) => {
+          if (a.read === b.read) {
+             // Secondary sort by date
+             return new Date(b.date).getTime() - new Date(a.date).getTime();
+          }
+          return a.read ? 1 : -1;
+        });
+      default:
+        return result;
+    }
+  }, [emails, sortOption, filters]);
+
   useEffect(() => {
     if (!selectedAccount && accounts.length > 0) {
       setSelectedAccount(accounts[0].id);
@@ -80,8 +122,16 @@ function App() {
   }, [selectedEmail, markAsRead]);
 
   const handleDeleteWrapper = async (emailId: string) => {
+    // [UPDATED] Auto-select next email
     if (selectedEmail?.id === emailId) {
-      setSelectedEmail(null);
+      const currentIndex = filteredAndSortedEmails.findIndex(e => e.id === emailId);
+      if (currentIndex !== -1) {
+        // Try next email, else previous
+        const nextEmail = filteredAndSortedEmails[currentIndex + 1] || filteredAndSortedEmails[currentIndex - 1] || null;
+        setSelectedEmail(nextEmail);
+      } else {
+        setSelectedEmail(null);
+      }
     }
     await deleteEmail(emailId);
   };
@@ -188,7 +238,7 @@ function App() {
           </div>
         ) : (
           <EmailList
-            emails={emails}
+            emails={filteredAndSortedEmails}
             selectedEmailId={selectedEmail?.id || null}
             onSelectEmail={setSelectedEmail}
             folderName={selectedFolder}
@@ -199,6 +249,10 @@ function App() {
             isRefreshing={isLoadingEmails || isSearching || isSyncing}
             onDeleteEmail={handleDeleteWrapper}
             onSearch={searchEmails}
+            sortOption={sortOption}
+            onSortChange={setSortOption}
+            filters={filters}
+            onFilterChange={setFilters}
           />
         )}
         {/* [UPDATED] Pass aiModel down to viewer */}

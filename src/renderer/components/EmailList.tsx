@@ -1,7 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { Email } from "../../shared/types";
 import { format } from "date-fns";
 import { RefreshCw, Search, Trash2, ArrowUpDown, Check, Filter } from "lucide-react";
+
+export type SortOption = "date-desc" | "date-asc" | "sender-asc" | "sender-desc" | "unread";
+
+export interface FilterState {
+  unread: boolean;
+  hasAttachments: boolean;
+}
 
 interface EmailListProps {
   emails: Email[];
@@ -12,9 +19,11 @@ interface EmailListProps {
   isRefreshing: boolean;
   onDeleteEmail: (id: string) => void;
   onSearch: (query: string) => void;
+  sortOption: SortOption;
+  onSortChange: (option: SortOption) => void;
+  filters: FilterState;
+  onFilterChange: (filters: FilterState) => void;
 }
-
-type SortOption = "date-desc" | "date-asc" | "sender-asc" | "sender-desc" | "unread";
 
 export const EmailList: React.FC<EmailListProps> = ({
   emails,
@@ -25,55 +34,19 @@ export const EmailList: React.FC<EmailListProps> = ({
   isRefreshing,
   onDeleteEmail,
   onSearch,
+  sortOption,
+  onSortChange,
+  filters,
+  onFilterChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOption, setSortOption] = useState<SortOption>("date-desc");
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
-  
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    unread: false,
-    hasAttachments: false,
-  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(searchQuery);
   };
-
-  const filteredAndSortedEmails = useMemo(() => {
-    let result = [...emails];
-
-    // Apply Filters
-    if (filters.unread) {
-      result = result.filter(email => !email.read);
-    }
-    if (filters.hasAttachments) {
-      result = result.filter(email => email.attachments && email.attachments.length > 0);
-    }
-
-    // Apply Sort
-    switch (sortOption) {
-      case "date-desc":
-        return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      case "date-asc":
-        return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      case "sender-asc":
-        return result.sort((a, b) => a.from.localeCompare(b.from));
-      case "sender-desc":
-        return result.sort((a, b) => b.from.localeCompare(a.from));
-      case "unread":
-        return result.sort((a, b) => {
-          if (a.read === b.read) {
-             // Secondary sort by date
-             return new Date(b.date).getTime() - new Date(a.date).getTime();
-          }
-          return a.read ? 1 : -1;
-        });
-      default:
-        return result;
-    }
-  }, [emails, sortOption, filters]);
 
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: "date-desc", label: "Newest First" },
@@ -115,14 +88,14 @@ export const EmailList: React.FC<EmailListProps> = ({
                       Filters
                     </div>
                     <button
-                      onClick={() => setFilters(prev => ({ ...prev, unread: !prev.unread }))}
+                      onClick={() => onFilterChange({ ...filters, unread: !filters.unread })}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 flex items-center justify-between"
                     >
                       Unread Only
                       {filters.unread && <Check size={14} className="text-sky-500" />}
                     </button>
                     <button
-                      onClick={() => setFilters(prev => ({ ...prev, hasAttachments: !prev.hasAttachments }))}
+                      onClick={() => onFilterChange({ ...filters, hasAttachments: !filters.hasAttachments })}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 flex items-center justify-between"
                     >
                       Has Attachments
@@ -132,7 +105,7 @@ export const EmailList: React.FC<EmailListProps> = ({
                         <div className="border-t border-gray-700 mt-1 pt-1">
                             <button
                               onClick={() => {
-                                  setFilters({ unread: false, hasAttachments: false });
+                                  onFilterChange({ unread: false, hasAttachments: false });
                                   setIsFilterMenuOpen(false);
                               }}
                               className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-gray-700"
@@ -170,7 +143,7 @@ export const EmailList: React.FC<EmailListProps> = ({
                       <button
                         key={option.value}
                         onClick={() => {
-                          setSortOption(option.value);
+                          onSortChange(option.value);
                           setIsSortMenuOpen(false);
                         }}
                         className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 flex items-center justify-between"
@@ -218,13 +191,13 @@ export const EmailList: React.FC<EmailListProps> = ({
 
       {/* List Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {filteredAndSortedEmails.length === 0 ? (
+        {emails.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-gray-500">
             <span className="text-sm">No emails found</span>
           </div>
         ) : (
           <div className="divide-y divide-gray-800">
-            {filteredAndSortedEmails.map(email => (
+            {emails.map(email => (
               <div
                 key={email.id}
                 onClick={() => onSelectEmail(email)}
