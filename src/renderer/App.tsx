@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react";
 
 import { useToast } from "./hooks/useToast";
 import { useMail } from "./hooks/useMail";
+import { useAuth } from "./hooks/useAuth";
 
 function App() {
   // --- UI State ---
@@ -45,6 +46,11 @@ function App() {
     setSelectedAccount(newAccount.id);
   }, []);
 
+  const { accounts, setAccounts } = useAuth({
+    addToast,
+    onAuthSuccess: handleAuthSuccess,
+  });
+
   const handleSyncSuccess = useCallback((fetchedEmails: Email[]) => {
     setSelectedEmail(prev => {
       if (!prev && fetchedEmails.length > 0) return fetchedEmails[0];
@@ -53,7 +59,6 @@ function App() {
   }, []);
 
   const {
-    accounts,
     emails,
     isLoadingEmails,
     isSyncing,
@@ -66,8 +71,8 @@ function App() {
     selectedAccount,
     selectedFolder,
     addToast,
-    onAuthSuccess: handleAuthSuccess,
     onSyncSuccess: handleSyncSuccess,
+    setAccounts,
   });
 
   // [NEW] Computed emails

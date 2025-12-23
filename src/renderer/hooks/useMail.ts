@@ -6,18 +6,17 @@ interface UseMailProps {
   selectedAccount: string;
   selectedFolder: string;
   addToast: (msg: string, type: ToastType) => void;
-  onAuthSuccess?: (account: Account) => void;
   onSyncSuccess?: (emails: Email[]) => void;
+  setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
 }
 
 export const useMail = ({
   selectedAccount,
   selectedFolder,
   addToast,
-  onAuthSuccess,
   onSyncSuccess,
+  setAccounts,
 }: UseMailProps) => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [emails, setEmails] = useState<Email[]>([]);
   const [isLoadingEmails, setIsLoadingEmails] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -26,37 +25,6 @@ export const useMail = ({
   const [isSearching, setIsSearching] = useState(false);
 
   const pendingDeletesRef = useRef<Set<string>>(new Set());
-
-  // --- Account Loading ---
-  useEffect(() => {
-    const loadAccounts = async () => {
-      try {
-        // @ts-ignore
-        const storedAccounts = await window.ipcRenderer.getAccounts();
-        setAccounts(storedAccounts);
-      } catch (e) {
-        console.error("Failed to load accounts", e);
-      }
-    };
-    loadAccounts();
-
-    // @ts-ignore
-    const removeListener = window.ipcRenderer.on(
-      "auth:success",
-      (newAccount: Account) => {
-        setAccounts(prev => {
-          if (prev.find(a => a.id === newAccount.id)) return prev;
-          return [...prev, newAccount];
-        });
-        addToast(`Connected to ${newAccount.name}`, "success");
-        if (onAuthSuccess) onAuthSuccess(newAccount);
-      },
-    );
-
-    return () => {
-      if (removeListener) removeListener();
-    };
-  }, [addToast, onAuthSuccess]);
 
   // --- Fetch Logic ---
   const fetchEmails = useCallback(async () => {
@@ -130,7 +98,7 @@ export const useMail = ({
       setIsLoadingEmails(false);
       setIsSyncing(false);
     }
-  }, [selectedAccount, selectedFolder, onSyncSuccess]);
+  }, [selectedAccount, selectedFolder, onSyncSuccess, setAccounts]);
 
   // --- Search Logic ---
   const searchEmails = useCallback(
@@ -217,7 +185,6 @@ export const useMail = ({
   };
 
   return {
-    accounts,
     emails,
     isLoadingEmails,
     isSyncing,
