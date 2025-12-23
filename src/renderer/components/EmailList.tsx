@@ -90,17 +90,21 @@ export const EmailList: React.FC<EmailListProps> = ({
               >
                 <div className="flex justify-between items-start mb-1">
                   <span
-                    className={`text-sm font-medium truncate pr-2 ${
-                      email.read ? "text-gray-300" : "text-white"
+                    className={`text-sm truncate pr-2 ${
+                      email.read ? "font-normal text-gray-400" : "font-bold text-white"
                     }`}
                   >
                     {email.from}
                   </span>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                  <span className={`text-xs whitespace-nowrap ${
+                      email.read ? "text-gray-500" : "text-sky-400 font-medium"
+                    }`}>
                     {format(new Date(email.date), "MMM d")}
                   </span>
                 </div>
-                <div className="text-sm text-gray-400 truncate font-medium mb-0.5">
+                <div className={`text-sm truncate mb-0.5 ${
+                  email.read ? "font-normal text-gray-500" : "font-semibold text-gray-200"
+                }`}>
                   {email.subject || "(No Subject)"}
                 </div>
                 <div className="text-xs text-gray-500 truncate opacity-70">
