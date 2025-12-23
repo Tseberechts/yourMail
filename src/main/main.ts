@@ -44,7 +44,8 @@ const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 // --- Register Handlers ---
 // Registered immediately to avoid race conditions
 registerAuthHandlers(authService, accountStore, secureStore, () => win);
-registerMailHandlers(imapService, syncService, smtpService);
+// Updated: Passing emailRepo explicitly
+registerMailHandlers(imapService, syncService, smtpService, emailRepo);
 registerAiHandlers(aiService);
 registerSystemHandlers();
 

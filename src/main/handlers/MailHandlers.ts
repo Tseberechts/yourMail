@@ -2,12 +2,14 @@ import { ipcMain } from "electron";
 import { ImapService } from "../imap/ImapService";
 import { SyncService } from "../imap/SyncService";
 import { SmtpService } from "../SmtpService";
+import { EmailRepository } from "../db/EmailRepository";
 import { SendEmailPayload } from "../../shared/types";
 
 export function registerMailHandlers(
   imapService: ImapService,
   syncService: SyncService,
   smtpService: SmtpService,
+  emailRepo: EmailRepository,
 ) {
   // --- IMAP & Mailboxes ---
   ipcMain.handle("email:getMailboxes", async (_e, accId) => {
@@ -19,14 +21,32 @@ export function registerMailHandlers(
     }
   });
 
-  // --- Syncing ---
+  // --- DB Access (Fast Load) ---
+  ipcMain.handle(
+    "email:getFromDb",
+    async (_e, data: { accountId: string; path: string }) => {
+      try {
+        const accId = typeof data === "string" ? data : data.accountId;
+        const path = typeof data === "string" ? "INBOX" : data.path || "INBOX";
+        const emails = emailRepo.getEmails(accId, path);
+        return { success: true, emails };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
+
+  // --- Syncing (Network) ---
   ipcMain.handle(
     "email:sync",
     async (_e, data: { accountId: string; path: string }) => {
       try {
         const accId = typeof data === "string" ? data : data.accountId;
         const path = typeof data === "string" ? "INBOX" : data.path || "INBOX";
+
+        // This performs the network fetch and DB save
         const emails = await syncService.syncAndFetch(accId, path);
+
         const unreadCount = emails.filter(e => !e.read).length;
         return { success: true, emails, unreadCount };
       } catch (e: any) {

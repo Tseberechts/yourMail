@@ -43,7 +43,7 @@ export class EmailRepository {
                     subject: email.subject,
                     from: email.from,
                     date: email.date,
-                    snippet: email.body,
+                    snippet: email.snippet || email.body,
                     body: email.body,
                     htmlBody: email.htmlBody,
                     is_read: email.read ? 1 : 0
@@ -152,7 +152,8 @@ export class EmailRepository {
             subject: row.subject,
             from: row.from_addr,
             date: row.date,
-            body: row.snippet,
+            body: row.body,
+            snippet: row.snippet,
             htmlBody: row.html_body,
             read: Boolean(row.is_read),
             tags: [],

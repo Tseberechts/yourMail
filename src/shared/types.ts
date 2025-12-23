@@ -32,6 +32,7 @@ export interface Email {
     from: string;
     date: string;
     body: string;
+    snippet?: string;
     htmlBody?: string;
     tags: string[];
     read: boolean;

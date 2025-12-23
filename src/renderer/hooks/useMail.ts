@@ -39,8 +39,6 @@ export const useMail = ({
     };
     loadAccounts();
 
-    // [FIXED] Removed '_event' argument.
-    // The listener now correctly receives just the 'newAccount' object.
     // @ts-ignore
     const removeListener = window.ipcRenderer.on(
       "auth:success",
@@ -63,12 +61,44 @@ export const useMail = ({
   const fetchEmails = useCallback(async () => {
     if (!selectedAccount) return;
 
-    setIsLoadingEmails(true);
+    const path = selectedFolder || "INBOX";
+
+    // 1. FAST: Load from Local DB immediately
+    try {
+      // @ts-ignore
+      const localResult = await window.ipcRenderer.getFromDb(
+        selectedAccount,
+        path,
+      );
+
+      if (localResult.success && Array.isArray(localResult.emails)) {
+        // Remove pending deletes from view
+        const validLocalEmails = localResult.emails.filter(
+          (e: Email) => !pendingDeletesRef.current.has(e.id),
+        );
+
+        // If we found emails locally, show them immediately
+        if (validLocalEmails.length > 0) {
+          setEmails(validLocalEmails);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load local emails:", err);
+    }
+
+    // 2. SLOW: Sync from Server (Background)
+    // Only show loading spinner if we have NO emails to show yet
+    // This prevents the "blank screen" feel on startup
+    setEmails(currentEmails => {
+      if (currentEmails.length === 0) setIsLoadingEmails(true);
+      return currentEmails;
+    });
+
     try {
       // @ts-ignore
       const result = await window.ipcRenderer.syncEmails({
         accountId: selectedAccount,
-        path: selectedFolder || "INBOX",
+        path: path,
       });
 
       if (result.success) {
@@ -77,10 +107,7 @@ export const useMail = ({
         );
         setEmails(validEmails);
 
-        if (
-          typeof result.unreadCount === "number" &&
-          (selectedFolder === "INBOX" || !selectedFolder)
-        ) {
+        if (typeof result.unreadCount === "number" && path === "INBOX") {
           setAccounts(prevAccounts =>
             prevAccounts.map(acc => {
               if (acc.id === selectedAccount) {
