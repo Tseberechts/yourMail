@@ -18,10 +18,8 @@ import { useEmailSelection } from "./hooks/useEmailSelection";
 import { useAppModals } from "./hooks/useAppModals";
 
 function App() {
-  // --- UI State ---
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
-  // [UPDATED] Lifted AI Model State
+
   const [aiModel, setAiModel] = useState(
     () => localStorage.getItem("ym_ai_model") || "gemini-2.5-flash",
   );
@@ -57,15 +55,6 @@ function App() {
     onAuthSuccess: handleAuthSuccess,
   });
 
-  // We need to define handleSyncSuccess before useMail, but it needs setSelectedEmail
-  // which comes from useEmailSelection. However, useEmailSelection needs filteredAndSortedEmails
-  // which comes from useEmailFilterSort, which needs emails from useMail.
-  // To break this cycle, we'll use a ref or a simple state for the "next selected email" logic
-  // inside useMail, OR we can just pass a simple callback that we update later.
-  // Actually, the cleanest way is to let useMail just return emails, and we handle selection logic separately.
-  // But useMail takes onSyncSuccess.
-  // Let's use a state for the "initial" selection from sync.
-  
   const [syncSelectedEmail, setSyncSelectedEmail] = useState<Email | null>(null);
 
   const handleSyncSuccess = useCallback((fetchedEmails: Email[]) => {
@@ -109,7 +98,6 @@ function App() {
     deleteEmail,
   });
 
-  // Effect to handle the sync selection
   useEffect(() => {
       if (syncSelectedEmail && !selectedEmail) {
           setSelectedEmail(syncSelectedEmail);
@@ -126,7 +114,6 @@ function App() {
 
   const currentAccountObj = accounts.find(a => a.id === selectedAccount);
 
-  // [UPDATED] Handler for global settings updates
   const handleSaveGlobalSettings = (newModel: string) => {
     setAiModel(newModel);
   };
