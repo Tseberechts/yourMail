@@ -1,5 +1,5 @@
 import { AppDatabase } from './Database';
-import { Email } from '../../shared/types';
+import { Email, Mailbox } from '../../shared/types';
 import crypto from 'crypto';
 
 export interface PendingAction {
@@ -118,6 +118,43 @@ export class EmailRepository {
             SELECT MAX(uid) as maxUid FROM emails WHERE account_id = ? AND folder = ?
         `).get(accountId, folder) as { maxUid: number };
         return row ? row.maxUid || 0 : 0;
+    }
+
+    // --- Mailbox Methods ---
+    saveMailboxes(accountId: string, mailboxes: Mailbox[]) {
+        const insert = this.db.getDb().prepare(`
+            INSERT OR REPLACE INTO mailboxes (account_id, path, name, delimiter, type)
+            VALUES (@account_id, @path, @name, @delimiter, @type)
+        `);
+
+        const transaction = this.db.getDb().transaction(() => {
+            // Optional: Clear old mailboxes for this account if you want a full sync
+            // this.db.getDb().prepare('DELETE FROM mailboxes WHERE account_id = ?').run(accountId);
+            
+            for (const box of mailboxes) {
+                insert.run({
+                    account_id: accountId,
+                    path: box.path,
+                    name: box.name,
+                    delimiter: box.delimiter,
+                    type: box.type || null
+                });
+            }
+        });
+        transaction();
+    }
+
+    getMailboxes(accountId: string): Mailbox[] {
+        const rows = this.db.getDb().prepare(`
+            SELECT * FROM mailboxes WHERE account_id = ? ORDER BY path ASC
+        `).all(accountId) as any[];
+
+        return rows.map(r => ({
+            path: r.path,
+            name: r.name,
+            delimiter: r.delimiter,
+            type: r.type
+        }));
     }
 
     // --- Offline Queue Methods ---

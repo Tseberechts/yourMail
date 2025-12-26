@@ -14,7 +14,25 @@ export function registerMailHandlers(
   // --- IMAP & Mailboxes ---
   ipcMain.handle("email:getMailboxes", async (_e, accId) => {
     try {
+      // 1. Try Local DB first
+      const localMailboxes = emailRepo.getMailboxes(accId);
+      
+      if (localMailboxes.length > 0) {
+          // Trigger background update without awaiting
+          // We use a small delay to not block the main process immediately
+          setTimeout(() => {
+              imapService.getMailboxes(accId).then(boxes => {
+                  emailRepo.saveMailboxes(accId, boxes);
+              }).catch(e => console.error("Background mailbox sync failed", e));
+          }, 1000);
+          
+          return { success: true, mailboxes: localMailboxes };
+      }
+
+      // 2. If no local data, fetch from server
       const mailboxes = await imapService.getMailboxes(accId);
+      emailRepo.saveMailboxes(accId, mailboxes);
+
       return { success: true, mailboxes };
     } catch (e: any) {
       return { success: false, error: e.message };

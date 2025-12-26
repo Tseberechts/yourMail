@@ -16,6 +16,7 @@ import {
   Shield,
   Tag,
   Trash2,
+  Layers,
 } from "lucide-react";
 import { Account, Mailbox } from "../../shared/types";
 
@@ -30,16 +31,17 @@ interface SidebarProps {
   onOpenAddAccount: () => void;
   onOpenCompose: () => void;
   onOpenSettings: (account: Account) => void;
-  onOpenGlobalSettings: () => void; // [NEW]
+  onOpenGlobalSettings: () => void;
 }
 
-// Helper to define tree structure
 interface MailboxNode {
   name: string;
   path: string;
   type?: string;
   children: MailboxNode[];
   level: number;
+  rawName: string;
+  delimiter: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -53,13 +55,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAddAccount,
   onOpenCompose,
   onOpenSettings,
-  onOpenGlobalSettings, // [NEW]
+  onOpenGlobalSettings,
 }) => {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [isLoadingBoxes, setIsLoadingBoxes] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Fetch mailboxes when account changes
   useEffect(() => {
     if (!selectedAccountId) return;
 
@@ -80,9 +81,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     fetchBoxes();
   }, [selectedAccountId]);
 
-  // Build Tree Structure
   const mailboxTree = useMemo(() => {
     const root: MailboxNode[] = [];
+    const customRoots: MailboxNode[] = [];
     const map = new Map<string, MailboxNode>();
 
     // 1. Create nodes
@@ -118,14 +119,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return a.name.localeCompare(b.name);
     });
 
-    // 3. Build hierarchy
+    // 3. Map by rawName for parent lookup
     nodes.forEach(node => {
       map.set(node.rawName, node);
     });
 
+    // 4. Build Tree
     nodes.forEach(node => {
       if (node.level === 0) {
-        root.push(node);
+        const isSystem = ["inbox", "sent", "drafts", "trash", "archive", "junk"].includes(node.type || "");
+        if (isSystem) {
+            root.push(node);
+        } else {
+            customRoots.push(node);
+        }
       } else {
         const parentName = node.rawName.substring(
           0,
@@ -135,10 +142,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (parent) {
           parent.children.push(node);
         } else {
-          root.push(node);
+          // Fallback: treat orphans as custom roots
+          customRoots.push(node);
         }
       }
     });
+
+    // 5. Wrap custom roots in a virtual "Folders" node
+    if (customRoots.length > 0) {
+        root.push({
+            name: "Folders",
+            path: "##VIRTUAL_FOLDERS##",
+            type: "virtual_folder_group",
+            children: customRoots,
+            level: 0,
+            rawName: "Folders",
+            delimiter: "/",
+        });
+    }
 
     return root;
   }, [mailboxes]);
@@ -157,6 +178,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     hasChildren: boolean,
     isExpanded: boolean,
   ) => {
+    if (type === "virtual_folder_group") {
+        return <Layers size={16} />;
+    }
     if (hasChildren) {
       return isExpanded ? (
         <Folder size={16} className="text-sky-400" />
@@ -182,11 +206,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const renderTree = (nodes: MailboxNode[]) => {
+  const renderTree = (nodes: MailboxNode[], depth: number = 0) => {
     return nodes.map(node => {
       const isExpanded = expandedNodes.has(node.path);
       const hasChildren = node.children.length > 0;
       const isSelected = selectedFolder === node.path;
+      const isVirtual = node.type === "virtual_folder_group";
 
       return (
         <div key={node.path}>
@@ -196,27 +221,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? "bg-sky-500/10 text-sky-400 font-medium"
                 : "text-gray-400 hover:text-gray-300 hover:bg-gray-700/30"
             }`}
-            style={{ paddingLeft: `${node.level * 12 + 8}px` }}
-            onClick={() => onSelectFolder(node.path)}
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            onClick={() => {
+                if (isVirtual) {
+                    toggleNode(node.path);
+                } else {
+                    onSelectFolder(node.path);
+                }
+            }}
           >
             <div className="flex items-center min-w-0 flex-1">
-              {hasChildren ? (
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
+              {/* Toggle Button */}
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  if (hasChildren || isVirtual) {
                     toggleNode(node.path);
-                  }}
-                  className="p-0.5 mr-1 hover:bg-gray-700 rounded text-gray-500"
-                >
-                  {isExpanded ? (
-                    <ChevronDown size={12} />
-                  ) : (
-                    <ChevronRight size={12} />
-                  )}
-                </button>
-              ) : (
-                <span className="w-4 mr-1"></span>
-              )}
+                  }
+                }}
+                className={`p-0.5 mr-1 rounded text-gray-500 hover:bg-gray-700 ${
+                  (hasChildren || isVirtual) ? "visible" : "invisible"
+                }`}
+              >
+                {isExpanded ? (
+                  <ChevronDown size={12} />
+                ) : (
+                  <ChevronRight size={12} />
+                )}
+              </button>
 
               <span className="mr-2 opacity-70">
                 {getFolderIcon(node.type || "normal", hasChildren, isExpanded)}
@@ -225,7 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {hasChildren && isExpanded && <div>{renderTree(node.children)}</div>}
+          {(hasChildren || isVirtual) && isExpanded && <div>{renderTree(node.children, depth + 1)}</div>}
         </div>
       );
     });

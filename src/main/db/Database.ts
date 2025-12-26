@@ -85,6 +85,18 @@ export class AppDatabase {
             );
         `);
 
+        // 6. Mailboxes (Folders)
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS mailboxes (
+                account_id TEXT NOT NULL,
+                path TEXT NOT NULL,
+                name TEXT NOT NULL,
+                delimiter TEXT,
+                type TEXT,
+                PRIMARY KEY (account_id, path)
+            );
+        `);
+
         this.db.exec(`CREATE INDEX IF NOT EXISTS idx_emails_account_folder ON emails(account_id, folder);`);
     }
 

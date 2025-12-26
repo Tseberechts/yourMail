@@ -25,12 +25,18 @@ export const useMail = ({
   const [isSearching, setIsSearching] = useState(false);
 
   const pendingDeletesRef = useRef<Set<string>>(new Set());
+  
+  // Ref to track the current request ID to avoid race conditions
+  const currentRequestIdRef = useRef<number>(0);
 
   // --- Fetch Logic ---
   const fetchEmails = useCallback(async () => {
     if (!selectedAccount) return;
 
     const path = selectedFolder || "INBOX";
+    
+    // Increment request ID for this new fetch
+    const requestId = ++currentRequestIdRef.current;
 
     // 1. FAST: Load from Local DB immediately
     try {
@@ -39,6 +45,9 @@ export const useMail = ({
         selectedAccount,
         path,
       );
+
+      // Check if this is still the latest request
+      if (requestId !== currentRequestIdRef.current) return;
 
       if (localResult.success && Array.isArray(localResult.emails)) {
         // Remove pending deletes from view
@@ -49,10 +58,19 @@ export const useMail = ({
         // If we found emails locally, show them immediately
         if (validLocalEmails.length > 0) {
           setEmails(validLocalEmails);
+        } else {
+            // If local DB is empty for this folder, clear the view
+            setEmails([]);
         }
+      } else {
+          // If fetch failed or no emails, clear view
+          setEmails([]);
       }
     } catch (err) {
       console.warn("Failed to load local emails:", err);
+      if (requestId === currentRequestIdRef.current) {
+          setEmails([]);
+      }
     }
 
     // 2. SLOW: Sync from Server (Background)
@@ -71,6 +89,9 @@ export const useMail = ({
         accountId: selectedAccount,
         path: path,
       });
+
+      // Check if this is still the latest request
+      if (requestId !== currentRequestIdRef.current) return;
 
       if (result.success) {
         const validEmails = result.emails.filter(
@@ -95,8 +116,10 @@ export const useMail = ({
     } catch (e) {
       console.error("Sync error:", e);
     } finally {
-      setIsLoadingEmails(false);
-      setIsSyncing(false);
+      if (requestId === currentRequestIdRef.current) {
+          setIsLoadingEmails(false);
+          setIsSyncing(false);
+      }
     }
   }, [selectedAccount, selectedFolder, onSyncSuccess, setAccounts]);
 
@@ -127,14 +150,45 @@ export const useMail = ({
     [selectedAccount, fetchEmails],
   );
 
-  // Auto Refresh
+  // Auto Refresh & Background Sync
   useEffect(() => {
     fetchEmails();
+    
+    // Background sync for other folders
+    const backgroundSync = async () => {
+        if (!selectedAccount) return;
+        const foldersToSync = ["INBOX", "Sent", "Drafts", "Trash", "Archive", "Junk"];
+        
+        for (const folder of foldersToSync) {
+            if (folder === selectedFolder) continue; // Already syncing via fetchEmails
+            try {
+                // @ts-ignore
+                await window.ipcRenderer.syncEmails({
+                    accountId: selectedAccount,
+                    path: folder,
+                });
+            } catch (e) {
+                console.warn(`Background sync failed for ${folder}`, e);
+            }
+        }
+    };
+
+    // Initial background sync after a short delay
+    const initialSyncTimer = setTimeout(() => {
+        backgroundSync();
+    }, 5000);
+
     const intervalId = setInterval(() => {
       fetchEmails();
+      // Also run background sync periodically
+      backgroundSync();
     }, 60000);
-    return () => clearInterval(intervalId);
-  }, [fetchEmails]);
+
+    return () => {
+        clearInterval(intervalId);
+        clearTimeout(initialSyncTimer);
+    };
+  }, [fetchEmails, selectedAccount, selectedFolder]);
 
   // --- Actions ---
   const deleteEmail = async (emailId: string) => {
