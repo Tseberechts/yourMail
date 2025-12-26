@@ -1,18 +1,39 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Email } from "../../shared/types";
 
 interface UseEmailSelectionProps {
   filteredAndSortedEmails: Email[];
   markAsRead: (emailId: string) => Promise<void>;
   deleteEmail: (emailId: string) => Promise<void>;
+  selectedFolder: string;
 }
 
 export const useEmailSelection = ({
   filteredAndSortedEmails,
   markAsRead,
   deleteEmail,
+  selectedFolder,
 }: UseEmailSelectionProps) => {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+  const hasAutoSelectedRef = useRef(false);
+  const prevFolderRef = useRef(selectedFolder);
+
+  // Reset auto-select flag when folder changes
+  useEffect(() => {
+    if (prevFolderRef.current !== selectedFolder) {
+      hasAutoSelectedRef.current = false;
+      setSelectedEmail(null); // Clear selection on folder change
+      prevFolderRef.current = selectedFolder;
+    }
+  }, [selectedFolder]);
+
+  // Auto-select first email if nothing is selected and we have emails
+  useEffect(() => {
+    if (!hasAutoSelectedRef.current && filteredAndSortedEmails.length > 0 && !selectedEmail) {
+      setSelectedEmail(filteredAndSortedEmails[0]);
+      hasAutoSelectedRef.current = true;
+    }
+  }, [filteredAndSortedEmails, selectedEmail]);
 
   // Auto-mark as read
   useEffect(() => {

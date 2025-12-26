@@ -2,9 +2,9 @@ import { google } from 'googleapis';
 import { BrowserWindow, shell } from 'electron';
 import http from 'http';
 import url from 'url';
-import { SecureStore } from './SecureStore';
-import { AccountStore } from './AccountStore';
-import { Account } from '../shared/types';
+import { SecureStore } from '../stores/SecureStore';
+import { AccountStore } from '../stores/AccountStore';
+import { Account } from '../../shared/types';
 import dotenv from 'dotenv';
 
 dotenv.config();

@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { SecureStore } from "./SecureStore";
+import { SecureStore } from "../stores/SecureStore";
 
 export class AiService {
   private secureStore: SecureStore;

@@ -1,6 +1,6 @@
 import { app, Menu, BrowserWindow } from "electron";
-import { SecureStore } from "./SecureStore";
-import { AccountStore } from "./AccountStore";
+import { SecureStore } from "../stores/SecureStore";
+import { AccountStore } from "../stores/AccountStore";
 
 export function createApplicationMenu(
   window: BrowserWindow,

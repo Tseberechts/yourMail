@@ -2,15 +2,15 @@ import { app, BrowserWindow } from "electron";
 import path from "node:path";
 
 // Services
-import { SecureStore } from "./SecureStore";
-import { AuthService } from "./AuthService";
-import { AccountStore } from "./AccountStore";
+import { SecureStore } from "./stores/SecureStore";
+import { AuthService } from "./services/AuthService";
+import { AccountStore } from "./stores/AccountStore";
 import { ImapService } from "./imap/ImapService";
-import { SmtpService } from "./SmtpService";
+import { SmtpService } from "./services/SmtpService";
 import { AppDatabase } from "./db/Database";
 import { EmailRepository } from "./db/EmailRepository";
 import { SyncService } from "./imap/SyncService";
-import { AiService } from "./AiService";
+import { AiService } from "./services/AiService";
 
 // Handlers
 import { registerAuthHandlers } from "./handlers/AuthHandlers";
@@ -19,7 +19,7 @@ import { registerAiHandlers } from "./handlers/AiHandlers";
 import { registerSystemHandlers } from "./handlers/SystemHandlers";
 
 // Menu
-import { createApplicationMenu } from "./AppMenu";
+import { createApplicationMenu } from "./components/AppMenu";
 
 process.env.DIST = path.join(__dirname, "../dist");
 process.env.VITE_PUBLIC = app.isPackaged
@@ -60,6 +60,9 @@ function createWindow() {
       contextIsolation: true,
     },
   });
+
+  // [NEW] Pass window to ImapService for progress updates
+  imapService.setMainWindow(win);
 
   // Attach Menu
   createApplicationMenu(win, secureStore, accountStore);

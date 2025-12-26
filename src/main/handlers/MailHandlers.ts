@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import { ImapService } from "../imap/ImapService";
 import { SyncService } from "../imap/SyncService";
-import { SmtpService } from "../SmtpService";
+import { SmtpService } from "../services/SmtpService";
 import { EmailRepository } from "../db/EmailRepository";
 import { SendEmailPayload } from "../../shared/types";
 

@@ -9,6 +9,7 @@ import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { GlobalSettingsModal } from "./components/GlobalSettingsModal";
 import { ToastContainer } from "./components/Toast";
 import { Loader2 } from "lucide-react";
+import { SyncProgress } from "./components/SyncProgress";
 
 import { useToast } from "./hooks/useToast";
 import { useMail } from "./hooks/useMail";
@@ -96,6 +97,7 @@ function App() {
     filteredAndSortedEmails,
     markAsRead,
     deleteEmail,
+    selectedFolder,
   });
 
   useEffect(() => {
@@ -121,6 +123,9 @@ function App() {
   return (
     <div className="flex h-screen w-screen bg-gray-900 text-white overflow-hidden font-sans relative">
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      
+      {/* Sync Progress Indicator */}
+      <SyncProgress />
 
       <AddAccountModal
         isOpen={isAddAccountOpen}
@@ -169,7 +174,13 @@ function App() {
       <div className="flex flex-1 overflow-hidden">
         {isLoadingEmails && emails.length === 0 ? (
           <div className="w-80 flex items-center justify-center border-r border-gray-700 bg-gray-900">
-            <Loader2 className="animate-spin text-sky-500" />
+             {/* Only show loader if we are syncing AND have no emails. 
+                 If we are NOT syncing and have no emails, it means the folder is empty. */}
+             {isSyncing ? (
+                <Loader2 className="animate-spin text-sky-500" />
+             ) : (
+                <div className="text-gray-500 text-sm">No emails found</div>
+             )}
           </div>
         ) : (
           <EmailList

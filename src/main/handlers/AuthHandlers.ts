@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
-import { AuthService } from "../AuthService";
-import { AccountStore } from "../AccountStore";
-import { SecureStore } from "../SecureStore";
+import { AuthService } from "../services/AuthService";
+import { AccountStore } from "../stores/AccountStore";
+import { SecureStore } from "../stores/SecureStore";
 
 export function registerAuthHandlers(
   authService: AuthService,

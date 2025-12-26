@@ -1,6 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { google } from 'googleapis';
-import { SecureStore } from '../SecureStore';
+import { SecureStore } from '../stores/SecureStore';
 import dotenv from 'dotenv';
 
 dotenv.config();

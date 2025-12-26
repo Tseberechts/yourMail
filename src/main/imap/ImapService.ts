@@ -1,14 +1,31 @@
 import { ImapFlow } from 'imapflow';
-import { SecureStore } from '../SecureStore';
+import { SecureStore } from '../stores/SecureStore';
 import { simpleParser } from 'mailparser';
 import { Email, Mailbox } from '../../shared/types';
 import { ImapClientManager } from './ImapClientManager';
+import { BrowserWindow } from 'electron';
 
 export class ImapService {
     private clientManager: ImapClientManager;
+    private mainWindow: BrowserWindow | null = null;
 
     constructor(secureStore: SecureStore) {
         this.clientManager = new ImapClientManager(secureStore);
+    }
+
+    public setMainWindow(window: BrowserWindow) {
+        this.mainWindow = window;
+    }
+
+    private sendProgress(accountId: string, folder: string, current: number, total: number) {
+        if (this.mainWindow) {
+            this.mainWindow.webContents.send('sync:progress', {
+                accountId,
+                folder,
+                current,
+                total
+            });
+        }
     }
 
     /**
@@ -117,8 +134,9 @@ export class ImapService {
             const lock = await client.getMailboxLock(mailboxPath);
             try {
                 // Get status for unread count
-                const status = await client.status(mailboxPath, { unseen: true });
+                const status = await client.status(mailboxPath, { unseen: true, messages: true });
                 unreadCount = status.unseen || 0;
+                const totalMessages = status.messages || 0;
 
                 // Fetch latest 20 messages
                 // '1:*' means all, but we iterate backwards usually.
@@ -139,15 +157,28 @@ export class ImapService {
                 // ImapFlow allows fetching in reverse? No.
                 // We will fetch specific range in Phase 3. For now, fetch 1:* is okay for small test inboxes.
 
+                let fetchedCount = 0;
+                // We'll estimate total to fetch as totalMessages for now, or 50 if we limit it.
+                // Since we iterate all, let's use totalMessages.
+                
                 for await (const message of client.fetch('1:*', { envelope: true, source: true, internalDate: true, flags: true }, { uid: true })) {
-                    const email = await this.parseMessage(message); // Assuming parseMessage is made public or this is inside the class
-                    emails.unshift(email); // Add to start to reverse order (newest first)
+                    const email = await this.parseMessage(message); 
+                    emails.unshift(email); 
+                    
+                    fetchedCount++;
+                    // Send progress update every 5 messages or so to avoid flooding IPC
+                    if (fetchedCount % 5 === 0 || fetchedCount === totalMessages) {
+                        this.sendProgress(accountId, mailboxPath, fetchedCount, totalMessages);
+                    }
                 }
 
                 // Slice to keep only 50 newest in memory for MVP
                 if (emails.length > 50) {
                     emails.length = 50;
                 }
+                
+                // Final progress update
+                this.sendProgress(accountId, mailboxPath, totalMessages, totalMessages);
 
             } finally {
                 lock.release();

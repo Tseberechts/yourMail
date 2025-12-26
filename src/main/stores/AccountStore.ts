@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { Account } from '../shared/types';
+import { Account } from '../../shared/types';
 
 interface AccountSchema {
     accounts: Account[];

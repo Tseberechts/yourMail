@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { AiService } from "../AiService";
+import { AiService } from "../services/AiService";
 
 export function registerAiHandlers(aiService: AiService) {
   ipcMain.handle("ai:hasKey", async () => await aiService.hasKey());

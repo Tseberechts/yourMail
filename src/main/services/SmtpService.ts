@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
-import { SecureStore } from './SecureStore';
-import { Attachment } from '../shared/types';
+import { SecureStore } from '../stores/SecureStore';
+import { Attachment } from '../../shared/types';
 
 export class SmtpService {
     private secureStore: SecureStore;
